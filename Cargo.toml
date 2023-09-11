@@ -4,10 +4,14 @@ version = "0.0.1"
 edition = "2021"
 
 [dependencies]
-rusqlite = { version = "0.29.0", features = ["bundled-sqlcipher","chrono"] }
+rusqlite = { version = "0.29.0", features = ["bundled-sqlcipher-vendored-openssl","chrono"] }
 zeroize = { version = "1.6.0", features = ["zeroize_derive"] }
 totp-rs = { version = "5.1.0", features = ["otpauth", "zeroize"] }
 passwords = { version = "3.1.13", features = ["common-password"] }
 chrono = "0.4.26"
 secrecy = "0.8.0"
 regex = "1.9.3"
+sha1 = "0.10.5"
+reqwest = "0.11.20"
+tokio = { version = "1.32.0", features = ["full"] }
+card-validate = "2.3.0"

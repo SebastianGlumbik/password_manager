@@ -3,13 +3,14 @@ use crate::{
     impl_id, impl_label, impl_position, impl_required, impl_to_secret_string, utils::validate,
 };
 
+use regex::Regex;
 use secrecy::SecretString;
 use std::ops::Not;
 use totp_rs::{Rfc6238, TOTP as TOTP_RS};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 #[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop)]
-pub struct TOTP {
+pub struct Totp {
     id: u64,
     label: String,
     position: u32,
@@ -17,30 +18,23 @@ pub struct TOTP {
     totp: TOTP_RS,
 }
 
-impl TOTP {
-    pub fn from_url(label: String, required: bool, url: String) -> Result<TOTP, &'static str> {
-        TOTP::from_database(0, label, 0, required, url)
-    }
-    pub fn from_database(
-        mut id: u64,
+impl Totp {
+    pub fn from_url(
         mut label: String,
-        mut position: u32,
         mut required: bool,
         mut url: String,
-    ) -> Result<TOTP, &'static str> {
+    ) -> Result<Totp, &'static str> {
         let Ok(totp) = TOTP_RS::from_url(&url) else {
-            id.zeroize();
             label.zeroize();
             required.zeroize();
-            position.zeroize();
             url.zeroize();
             return Err("Invalid OTP Auth URL");
         };
         url.zeroize();
-        Ok(TOTP {
-            id,
+        Ok(Totp {
+            id: 0,
             label,
-            position,
+            position: 0,
             required,
             totp,
         })
@@ -49,7 +43,7 @@ impl TOTP {
         mut label: String,
         mut required: bool,
         secret: String,
-    ) -> Result<TOTP, &'static str> {
+    ) -> Result<Totp, &'static str> {
         let Ok(secret) = totp_rs::Secret::Encoded(secret).to_bytes() else {
             label.zeroize();
             required.zeroize();
@@ -65,7 +59,7 @@ impl TOTP {
             required.zeroize();
             return Err("Invalid OTP Secret");
         };
-        Ok(TOTP {
+        Ok(Totp {
             id: 0,
             label,
             position: 0,
@@ -78,14 +72,14 @@ impl TOTP {
     }
 }
 
-impl ToSecretString for TOTP {
+impl ToSecretString for Totp {
     fn to_secret_string(&self) -> SecretString {
         SecretString::new(self.totp.get_url())
     }
 }
 
 #[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop)]
-pub struct URL {
+pub struct Url {
     id: u64,
     label: String,
     position: u32,
@@ -93,29 +87,22 @@ pub struct URL {
     value: String,
 }
 
-impl URL {
-    pub fn new(label: String, required: bool, value: String) -> Result<URL, &'static str> {
-        URL::from_database(0, label, 0, required, value)
-    }
-    pub fn from_database(
-        mut id: u64,
+impl Url {
+    pub fn new(
         mut label: String,
-        mut position: u32,
         mut required: bool,
         mut value: String,
-    ) -> Result<URL, &'static str> {
-        if validate::is_url(value.as_str()).not() {
-            id.zeroize();
+    ) -> Result<Url, &'static str> {
+        if Regex::new(r"(http(s)?://.)?(www\.)?[-a-zA-Z0-9@:%._+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_+.~#?&/=]*)").unwrap().is_match(value.as_ref()).not() {
             label.zeroize();
-            position.zeroize();
             required.zeroize();
             value.zeroize();
             return Err("Invalid URL");
         };
-        Ok(URL {
-            id,
+        Ok(Url {
+            id: 0,
             label,
-            position,
+            position: 0,
             required,
             value,
         })
@@ -124,7 +111,7 @@ impl URL {
         &self.value
     }
     pub fn set_value(&mut self, mut value: String) -> Result<(), &'static str> {
-        if validate::is_url(value.as_str()).not() {
+        if Regex::new(r"(http(s)?://.)?(www\.)?[-a-zA-Z0-9@:%._+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_+.~#?&/=]*)").unwrap().is_match(value.as_ref()).not() {
             value.zeroize();
             return Err("Invalid URL");
         }
@@ -145,19 +132,10 @@ pub struct Password {
 
 impl Password {
     pub fn new(label: String, required: bool, value: String) -> Password {
-        Password::from_database(0, label, 0, required, value)
-    }
-    pub fn from_database(
-        id: u64,
-        label: String,
-        position: u32,
-        required: bool,
-        value: String,
-    ) -> Password {
         Password {
-            id,
+            id: 0,
             label,
-            position,
+            position: 0,
             required,
             value,
         }
@@ -181,28 +159,26 @@ pub struct Email {
 }
 
 impl Email {
-    pub fn new(label: String, required: bool, value: String) -> Result<Email, &'static str> {
-        Email::from_database(0, label, 0, required, value)
-    }
-    pub fn from_database(
-        mut id: u64,
+    pub fn new(
         mut label: String,
-        mut position: u32,
         mut required: bool,
         mut value: String,
     ) -> Result<Email, &'static str> {
-        if validate::is_email(value.as_str()).not() {
-            id.zeroize();
+        if Regex::new(r"([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)")
+            .unwrap()
+            .is_match(value.as_ref())
+            .not()
+        {
+            // https://emailregex.com/
             label.zeroize();
-            position.zeroize();
             required.zeroize();
             value.zeroize();
             return Err("Invalid email");
         };
         Ok(Email {
-            id,
+            id: 0,
             label,
-            position,
+            position: 0,
             required,
             value,
         })
@@ -211,7 +187,11 @@ impl Email {
         &self.value
     }
     pub fn set_value(&mut self, mut value: String) -> Result<(), &'static str> {
-        if validate::is_email(value.as_str()).not() {
+        if Regex::new(r"([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)")
+            .unwrap()
+            .is_match(value.as_ref())
+            .not()
+        {
             value.zeroize();
             return Err("Invalid email");
         }
@@ -231,28 +211,25 @@ pub struct PhoneNumber {
 }
 
 impl PhoneNumber {
-    pub fn new(label: String, required: bool, value: String) -> Result<PhoneNumber, &'static str> {
-        PhoneNumber::from_database(0, label, 0, required, value)
-    }
-    pub fn from_database(
-        mut id: u64,
+    pub fn new(
         mut label: String,
-        mut position: u32,
         mut required: bool,
         mut value: String,
     ) -> Result<PhoneNumber, &'static str> {
-        if validate::is_phone_number(value.as_str()).not() {
-            id.zeroize();
+        if Regex::new(r"(\+[1-9]{1,4})?[0-9]([0-9]*)")
+            .unwrap()
+            .is_match(value.as_ref())
+            .not()
+        {
             label.zeroize();
-            position.zeroize();
             required.zeroize();
             value.zeroize();
             return Err("Invalid phone number");
         };
         Ok(PhoneNumber {
-            id,
+            id: 0,
             label,
-            position,
+            position: 0,
             required,
             value,
         })
@@ -261,7 +238,11 @@ impl PhoneNumber {
         &self.value
     }
     pub fn set_value(&mut self, mut value: String) -> Result<(), &'static str> {
-        if validate::is_phone_number(value.as_str()).not() {
+        if Regex::new(r"(\+[1-9]{1,4})?[0-9]([0-9]*)")
+            .unwrap()
+            .is_match(value.as_ref())
+            .not()
+        {
             value.zeroize();
             return Err("Invalid phone number");
         }
@@ -282,31 +263,20 @@ pub struct BankCardNumber {
 
 impl BankCardNumber {
     pub fn new(
-        label: String,
-        required: bool,
-        value: String,
-    ) -> Result<BankCardNumber, &'static str> {
-        BankCardNumber::from_database(0, label, 0, required, value)
-    }
-    pub fn from_database(
-        mut id: u64,
         mut label: String,
-        mut position: u32,
         mut required: bool,
         mut value: String,
     ) -> Result<BankCardNumber, &'static str> {
         if validate::card::is_luhn_valid(value.as_str()).not() {
-            id.zeroize();
             label.zeroize();
-            position.zeroize();
             required.zeroize();
             value.zeroize();
             return Err("Invalid credit card number");
         };
         Ok(BankCardNumber {
-            id,
+            id: 0,
             label,
-            position,
+            position: 0,
             required,
             value,
         })
@@ -325,11 +295,11 @@ impl BankCardNumber {
     }
 }
 
-impl_id!(for TOTP, URL, Password, Email, PhoneNumber, BankCardNumber);
-impl_label!(for TOTP, URL, Password, Email, PhoneNumber, BankCardNumber);
-impl_position!(for TOTP, URL, Password, Email, PhoneNumber, BankCardNumber);
-impl_required!(for TOTP, URL, Password, Email, PhoneNumber, BankCardNumber);
-impl_to_secret_string!(for URL, Password, Email, PhoneNumber, BankCardNumber);
+impl_id!(for Totp, Url, Password, Email, PhoneNumber, BankCardNumber);
+impl_label!(for Totp, Url, Password, Email, PhoneNumber, BankCardNumber);
+impl_position!(for Totp, Url, Password, Email, PhoneNumber, BankCardNumber);
+impl_required!(for Totp, Url, Password, Email, PhoneNumber, BankCardNumber);
+impl_to_secret_string!(for Url, Password, Email, PhoneNumber, BankCardNumber);
 
 //TODO Tests
 #[cfg(test)]

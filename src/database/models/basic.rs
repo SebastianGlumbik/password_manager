@@ -1,9 +1,7 @@
 use crate::models::traits::{Id, Label, Position, Required, ToSecretString};
 use crate::{impl_id, impl_label, impl_position, impl_required, impl_to_secret_string};
 
-use chrono::ParseError;
 use secrecy::SecretString;
-use std::num::ParseIntError;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 #[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop)]
@@ -23,32 +21,6 @@ impl Number {
             position: 0,
             required,
             value,
-        }
-    }
-    pub fn from_database(
-        mut id: u64,
-        mut label: String,
-        mut position: u32,
-        mut required: bool,
-        mut value: String,
-    ) -> Result<Number, ParseIntError> {
-        let new_value = value.parse::<i128>();
-        value.zeroize();
-        match new_value {
-            Ok(value) => Ok(Number {
-                id,
-                label,
-                position,
-                required,
-                value,
-            }),
-            Err(e) => {
-                id.zeroize();
-                label.zeroize();
-                position.zeroize();
-                required.zeroize();
-                Err(e)
-            }
         }
     }
     pub fn value(&self) -> &i128 {
@@ -77,21 +49,11 @@ pub struct Text {
 }
 
 impl Text {
-    pub fn new(label: String, required: bool, value: String, text_type: TextType) -> Self {
-        Text::from_database(0, label, 0, required, value, text_type)
-    }
-    pub fn from_database(
-        id: u64,
-        label: String,
-        position: u32,
-        required: bool,
-        value: String,
-        text_type: TextType,
-    ) -> Self {
-        Self {
-            id,
+    pub fn new(label: String, required: bool, value: String, text_type: TextType) -> Text {
+        Text {
+            id: 0,
             label,
-            position,
+            position: 0,
             required,
             value,
             text_type,
@@ -127,33 +89,6 @@ impl Datetime {
             position: 0,
             required,
             value,
-        }
-    }
-    pub fn from_database(
-        mut id: u64,
-        mut label: String,
-        mut position: u32,
-        mut required: bool,
-        mut value: String,
-    ) -> Result<Datetime, ParseError> {
-        let new_value: Result<chrono::DateTime<chrono::Local>, ParseError> =
-            std::str::FromStr::from_str(value.as_str());
-        value.zeroize();
-        match new_value {
-            Ok(value) => Ok(Datetime {
-                id,
-                label,
-                position,
-                required,
-                value,
-            }),
-            Err(e) => {
-                id.zeroize();
-                label.zeroize();
-                position.zeroize();
-                required.zeroize();
-                Err(e)
-            }
         }
     }
 

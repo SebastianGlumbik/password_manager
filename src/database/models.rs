@@ -4,8 +4,6 @@ pub mod traits;
 
 use crate::impl_id;
 use crate::models::traits::{Id, Label, Position, Required};
-use std::cmp::Ordering;
-use std::ops::Not;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 #[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop)]
@@ -14,8 +12,8 @@ pub enum Content {
     Text(basic::Text),
     Datetime(basic::Datetime),
     Password(specific::Password),
-    TOTP(specific::TOTP),
-    URL(specific::URL),
+    Totp(specific::Totp),
+    Url(specific::Url),
     Email(specific::Email),
     PhoneNumber(specific::PhoneNumber),
     BankCardNumber(specific::BankCardNumber),
@@ -32,8 +30,8 @@ impl Content {
             },
             Content::Datetime(_) => "Datetime",
             Content::Password(_) => "Password",
-            Content::TOTP(_) => "TOTP",
-            Content::URL(_) => "URL",
+            Content::Totp(_) => "TOTP",
+            Content::Url(_) => "URL",
             Content::Email(_) => "Email",
             Content::PhoneNumber(_) => "PhoneNumber",
             Content::BankCardNumber(_) => "BankCardNumber",
@@ -48,8 +46,8 @@ impl Id for Content {
             Content::Text(text) => text.id(),
             Content::Datetime(datetime) => datetime.id(),
             Content::Password(password) => password.id(),
-            Content::TOTP(totp) => totp.id(),
-            Content::URL(url) => url.id(),
+            Content::Totp(totp) => totp.id(),
+            Content::Url(url) => url.id(),
             Content::Email(email) => email.id(),
             Content::PhoneNumber(phone_number) => phone_number.id(),
             Content::BankCardNumber(bank_card_number) => bank_card_number.id(),
@@ -62,8 +60,8 @@ impl Id for Content {
             Content::Text(text) => text.set_id(id),
             Content::Datetime(datetime) => datetime.set_id(id),
             Content::Password(password) => password.set_id(id),
-            Content::TOTP(totp) => totp.set_id(id),
-            Content::URL(url) => url.set_id(id),
+            Content::Totp(totp) => totp.set_id(id),
+            Content::Url(url) => url.set_id(id),
             Content::Email(email) => email.set_id(id),
             Content::PhoneNumber(phone_number) => phone_number.set_id(id),
             Content::BankCardNumber(bank_card_number) => bank_card_number.set_id(id),
@@ -78,8 +76,8 @@ impl Label for Content {
             Content::Text(text) => text.label(),
             Content::Datetime(datetime) => datetime.label(),
             Content::Password(password) => password.label(),
-            Content::TOTP(totp) => totp.label(),
-            Content::URL(url) => url.label(),
+            Content::Totp(totp) => totp.label(),
+            Content::Url(url) => url.label(),
             Content::Email(email) => email.label(),
             Content::PhoneNumber(phone_number) => phone_number.label(),
             Content::BankCardNumber(bank_card_number) => bank_card_number.label(),
@@ -92,8 +90,8 @@ impl Label for Content {
             Content::Text(text) => text.set_label(label),
             Content::Datetime(datetime) => datetime.set_label(label),
             Content::Password(password) => password.set_label(label),
-            Content::TOTP(totp) => totp.set_label(label),
-            Content::URL(url) => url.set_label(label),
+            Content::Totp(totp) => totp.set_label(label),
+            Content::Url(url) => url.set_label(label),
             Content::Email(email) => email.set_label(label),
             Content::PhoneNumber(phone_number) => phone_number.set_label(label),
             Content::BankCardNumber(bank_card_number) => bank_card_number.set_label(label),
@@ -108,8 +106,8 @@ impl Position for Content {
             Content::Text(text) => text.position(),
             Content::Datetime(datetime) => datetime.position(),
             Content::Password(password) => password.position(),
-            Content::TOTP(totp) => totp.position(),
-            Content::URL(url) => url.position(),
+            Content::Totp(totp) => totp.position(),
+            Content::Url(url) => url.position(),
             Content::Email(email) => email.position(),
             Content::PhoneNumber(phone_number) => phone_number.position(),
             Content::BankCardNumber(bank_card_number) => bank_card_number.position(),
@@ -122,8 +120,8 @@ impl Position for Content {
             Content::Text(text) => text.set_position(position),
             Content::Datetime(datetime) => datetime.set_position(position),
             Content::Password(content) => content.set_position(position),
-            Content::TOTP(totp) => totp.set_position(position),
-            Content::URL(url) => url.set_position(position),
+            Content::Totp(totp) => totp.set_position(position),
+            Content::Url(url) => url.set_position(position),
             Content::Email(email) => email.set_position(position),
             Content::PhoneNumber(phone_number) => phone_number.set_position(position),
             Content::BankCardNumber(bank_card_number) => bank_card_number.set_position(position),
@@ -138,8 +136,8 @@ impl Required for Content {
             Content::Text(text) => text.required(),
             Content::Datetime(datetime) => datetime.required(),
             Content::Password(content) => content.required(),
-            Content::TOTP(totp) => totp.required(),
-            Content::URL(url) => url.required(),
+            Content::Totp(totp) => totp.required(),
+            Content::Url(url) => url.required(),
             Content::Email(email) => email.required(),
             Content::PhoneNumber(phone_number) => phone_number.required(),
             Content::BankCardNumber(bank_card_number) => bank_card_number.required(),
@@ -152,8 +150,8 @@ impl Required for Content {
             Content::Text(text) => text.set_required(required),
             Content::Datetime(datetime) => datetime.set_required(required),
             Content::Password(password) => password.set_required(required),
-            Content::TOTP(totp) => totp.set_required(required),
-            Content::URL(url) => url.set_required(required),
+            Content::Totp(totp) => totp.set_required(required),
+            Content::Url(url) => url.set_required(required),
             Content::Email(email) => email.set_required(required),
             Content::PhoneNumber(phone_number) => phone_number.set_required(required),
             Content::BankCardNumber(bank_card_number) => bank_card_number.set_required(required),
@@ -197,35 +195,16 @@ pub struct Record {
     #[zeroize(skip)]
     last_modified: chrono::DateTime<chrono::Local>,
     category: Category,
-    content: Vec<Content>,
-    deleted: Vec<u64>,
 }
 
 impl Record {
     pub fn new(name: String, category: Category) -> Record {
-        Record::from_database(
-            0,
-            name,
-            chrono::Local::now(),
-            chrono::Local::now(),
-            category,
-        )
-    }
-    pub fn from_database(
-        id: u64,
-        name: String,
-        created: chrono::DateTime<chrono::Local>,
-        last_modified: chrono::DateTime<chrono::Local>,
-        category: Category,
-    ) -> Record {
         Record {
-            id,
+            id: 0,
             name,
-            created,
-            last_modified,
+            created: chrono::Local::now(),
+            last_modified: chrono::Local::now(),
             category,
-            content: Vec::new(),
-            deleted: Vec::new(),
         }
     }
     pub fn name(&self) -> &str {
@@ -240,68 +219,19 @@ impl Record {
     pub fn category(&self) -> &Category {
         &self.category
     }
-    pub fn content(&self) -> &Vec<Content> {
-        &self.content
-    }
-
-    pub fn deleted(&self) -> &Vec<u64> {
-        &self.deleted
-    }
     pub fn set_name(&mut self, name: String) {
         self.name.zeroize();
         self.name = name;
     }
+    pub fn set_created(&mut self, created: chrono::DateTime<chrono::Local>) {
+        self.created = created;
+    }
     pub fn set_last_modified(&mut self, last_modified: chrono::DateTime<chrono::Local>) {
         self.last_modified = last_modified;
     }
-    pub fn add_content(&mut self, mut content: Content) {
-        match content.position() {
-            0 => {
-                content.set_position((self.content.len() as u32) + 1);
-                self.content.push(content);
-            }
-            _ => {
-                let id = content.id();
-                self.content.push(content);
-                self.content
-                    .sort_by(|a, b| match a.position().cmp(&b.position()) {
-                        Ordering::Less => Ordering::Less,
-                        Ordering::Equal => {
-                            if b.id() == id {
-                                Ordering::Greater
-                            } else {
-                                Ordering::Less
-                            }
-                        }
-                        Ordering::Greater => Ordering::Greater,
-                    });
-                self.content
-                    .iter_mut()
-                    .enumerate()
-                    .for_each(|(i, content)| content.set_position((i + 1) as u32));
-            }
-        }
-    }
-    pub fn update_content(&mut self, position: u32) -> Option<&mut Content> {
-        self.content.get_mut((position - 1) as usize)
-    }
-
-    pub fn delete_content(&mut self, position: u32) -> bool {
-        if let Some(content) = self.content.get((position - 1) as usize) {
-            if content.required().not() {
-                self.deleted.push(content.id());
-                self.content.remove((position - 1) as usize);
-                return true;
-            }
-        }
-
-        false
-    }
-    pub fn clear_content(&mut self) {
-        self.content.clear();
-    }
-    pub fn content_count(&self) -> usize {
-        self.content.len()
+    pub fn set_category(&mut self, category: Category) {
+        self.category.zeroize();
+        self.category = category;
     }
 }
 

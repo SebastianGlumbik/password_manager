@@ -1,71 +1,111 @@
-pub mod database;
-pub mod utils;
+mod database;
+mod utils;
 
-pub use crate::database::*;
-use crate::models::Record;
+use crate::database::models::traits::Id;
+use crate::database::*;
+use crate::models::{basic, specific, Category, Content, Record};
 
 //TODO Comments for whole project
-
 //TODO csv export/import, cloud backup
-pub struct PasswordManager {
-    database: Database,
-    records: Vec<Record>,
+
+pub async fn run() -> Result<(), &'static str> {
+    let mut database = Database::open("password")?;
+
+    let mut record1 = Record::new("Example".to_string(), Category::Login);
+    database
+        .save_record(&mut record1)
+        .map_err(|_| "Failed to save record")?;
+
+    let mut record2 = Record::new(
+        "Testing".to_string(),
+        Category::Custom("Testing".to_string()),
+    );
+    database
+        .save_record(&mut record2)
+        .map_err(|_| "Failed to save record")?;
+
+    let mut record1_content1 = Content::Email(specific::Email::new(
+        "email".to_string(),
+        true,
+        "example@email.com".to_string(),
+    )?);
+    database
+        .save_content(record1.id(), &mut record1_content1)
+        .map_err(|_| "Failed to save content")?;
+
+    let mut record1_content2 = Content::Url(specific::Url::new(
+        "website".to_string(),
+        true,
+        "www.example.com".to_string(),
+    )?);
+    database
+        .save_content(record1.id(), &mut record1_content2)
+        .map_err(|_| "Failed to save content")?;
+
+    let pg = utils::password::PasswordGenerator {
+        length: 8,
+        numbers: true,
+        lowercase_letters: true,
+        uppercase_letters: true,
+        symbols: false,
+        spaces: false,
+        exclude_similar_characters: false,
+        strict: true,
+    };
+    let mut record1_content3 = Content::Password(specific::Password::new(
+        "password".to_string(),
+        true,
+        pg.generate_one()?,
+    ));
+    database
+        .save_content(record1.id(), &mut record1_content3)
+        .map_err(|_| "Failed to save content")?;
+
+    for record in database
+        .get_all_records()
+        .map_err(|_| "Failed to get records")?
+    {
+        println!("{:?}", record);
+    }
+
+    for content in database
+        .get_all_content_for_record(record1.id())
+        .map_err(|_| "Failed to get contents")?
+    {
+        println!("{:?}", content);
+    }
+
+    let mut record1_content4 = Content::Text(basic::Text::new(
+        "note".to_string(),
+        false,
+        "This is a note".to_string(),
+        basic::TextType::Normal,
+    ));
+    database
+        .save_content(record1.id(), &mut record1_content4)
+        .map_err(|_| "Failed to save content")?;
+
+    for content in database
+        .get_all_content_for_record(record1.id())
+        .map_err(|_| "Failed to get contents")?
+    {
+        println!("{:?}", content);
+
+        if let Content::Password(password) = &content {
+            println!(
+                "Exposed password: {}",
+                utils::password::is_exposed(password.value()).await.unwrap()
+            );
+            println!(
+                "Password score: {}",
+                utils::password::score(&utils::password::analyze(password.value()))
+            );
+        }
+    }
+    Ok(())
 }
 
-impl PasswordManager {
-    pub fn new(password: &str) -> Result<PasswordManager, &'static str> {
-        let database = Database::open(password)?;
-        let records = Vec::new();
-        Ok(PasswordManager { database, records })
-    }
-    pub fn change_key(&mut self, new_password: &str) -> Result<(), &'static str> {
-        self.database.change_key(new_password)
-    }
-    pub fn load_from_drive(&mut self) -> Result<(), &'static str> {
-        let Ok(records) = self.database.get_all_records() else {
-            return Err("Failed to load records from database");
-        };
-        self.records = records;
-        Ok(())
-    }
-    pub fn save_to_drive(&mut self) -> Result<(), &'static str> {
-        for record in self.records.iter_mut() {
-            if self.database.save_record(record).is_err() {
-                return Err("Failed to save records to drive");
-            }
-        }
-        Ok(())
-    }
-
-    pub fn load_content(&mut self, index: usize) -> Result<(), &'static str> {
-        if let Some(record) = self.records.get_mut(index) {
-            if self.database.load_record_content(record).is_err() {
-                return Err("Failed to load contents from database");
-            };
-        }
-        Ok(())
-    }
-    pub fn records(&self) -> &Vec<Record> {
-        &self.records
-    }
-    pub fn add_record(&mut self, record: Record) {
-        self.records.push(record);
-    }
-    pub fn update_record(&mut self, index: usize) -> Option<&mut Record> {
-        self.records.get_mut(index)
-    }
-    pub fn delete_record(&mut self, index: usize) -> bool {
-        self.database
-            .delete_record(&self.records.remove(index))
-            .is_ok()
-    }
-    pub fn clear_records(&mut self) {
-        self.records.clear();
-    }
-    pub fn records_count(&self) -> usize {
-        self.records.len()
-    }
-}
+// TODO some struct password manager
 
 //TODO Tests
 #[cfg(test)]

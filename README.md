@@ -13,3 +13,10 @@ Crates and their usage in this project:
 - [reqwest](https://crates.io/crates/reqwest) - Sending requests to haveibeenpwned API
 - [tokio](https://crates.io/crates/tokio) - Async runtime for reqwest
 - [card-validate](https://crates.io/crates/card-validate) - Validating credit card numbers
+
+## Icons sources
+### Main icon (lock)
+[Flaticon](https://www.flaticon.com/free-icon/lock_526812?term=password&page=1&position=28&origin=search&related_id=526812)
+### Icons for buttons
+[Font Awesome](https://fontawesome.com/)
+

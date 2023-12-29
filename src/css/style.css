@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply m-0;
+  @apply bg-[#F6F6F6] dark:bg-[#282828];
+  @apply h-screen;
+  @apply text-[#252525] dark:text-[#E9E9E9];
+  @apply text-[16px];
+}
+
+a {
+  @apply text-[#3578F7];
+  @apply hover:underline;
+}
+
+svg {
+  @apply fill-[#252525] dark:fill-[#E9E9E9]
+}
+
+input {
+  @apply accent-auto;
+  @apply bg-[#DADADA] dark:bg-[#414141];
+  @apply placeholder:text-[#282828] dark:placeholder:text-[#EDECEC];
+}

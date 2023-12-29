@@ -1,0 +1,33 @@
+[package]
+name = "password_manager"
+version = "0.0.0"
+description = "Password manager for bachelor thesis"
+authors = ["Sebastian Glumbík"]
+readme = "../README.md"
+repository = "https://github.com/SebastianGlumbik/password_manager"
+publish = false
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "1.5.1", features = [] }
+
+[dependencies]
+tauri = { version = "1.5.4", features = [ "dialog-all", "dialog"] }
+serde = { version = "1.0.193", features = ["derive"] }
+serde_json = "1.0.108"
+rusqlite = { version = "0.30.0", features = ["bundled-sqlcipher", "chrono"] }
+zeroize = { version = "1.7.0", features = ["zeroize_derive"] }
+totp-rs = { version = "5.4.0", features = ["otpauth", "zeroize"] }
+passwords = { version = "3.1.16", features = ["common-password"] }
+chrono = "0.4.31"
+secrecy = "0.8.0"
+regex = "1.10.2"
+sha1 = "0.10.6"
+reqwest = "0.11.23"
+tokio = { version = "1.35.1", features = ["full"] }
+card-validate = "2.3.0"
+
+[features]
+# this feature is used for production builds or when `devPath` points to the filesystem
+# DO NOT REMOVE!!
+custom-protocol = ["tauri/custom-protocol"]

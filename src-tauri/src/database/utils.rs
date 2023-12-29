@@ -1,5 +1,5 @@
-use crate::models::traits::{Id, Position};
-use crate::models::*;
+use crate::database::models::traits::{Id, Position};
+use crate::database::models::*;
 use chrono::ParseError;
 use rusqlite::{Error, Result, Row};
 use zeroize::Zeroize;

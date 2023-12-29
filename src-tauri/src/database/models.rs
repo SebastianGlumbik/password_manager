@@ -3,7 +3,7 @@ pub mod specific;
 pub mod traits;
 
 use crate::impl_id;
-use crate::models::traits::{Id, Label, Position, Required};
+use traits::{Id, Label, Position, Required};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 #[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop)]

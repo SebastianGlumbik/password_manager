@@ -1,4 +1,4 @@
-use crate::models::traits::{Id, Label, Position, Required, ToSecretString};
+use crate::database::models::traits::{Id, Label, Position, Required, ToSecretString};
 use crate::{
     impl_id, impl_label, impl_position, impl_required, impl_to_secret_string, utils::validate,
 };

@@ -1,8 +1,8 @@
 pub mod models;
 mod utils;
 
-use crate::models::traits::{Id, Label, Position, Required, ToSecretString};
-use crate::models::*;
+use models::traits::{Id, Label, Position, Required, ToSecretString};
+use models::*;
 use rusqlite::{params, Connection, Result};
 use secrecy::{ExposeSecret, SecretString};
 
@@ -11,11 +11,11 @@ pub struct Database {
 }
 
 impl Database {
-    pub fn open(password: &str) -> Result<Database, &'static str> {
+    pub fn open(path: &str, password: &str) -> Result<Database, &'static str> {
         if password.trim().is_empty() {
-            return Err("Password cannot be empty");
+            return Err("Password can not be empty");
         }
-        let Ok(connection) = Connection::open("database.db") else {
+        let Ok(connection) = Connection::open(path) else {
             return Err("Failed to open database");
         };
 
@@ -88,7 +88,7 @@ impl Database {
         let items_iter = stmt.query_map([id_record], |row| utils::row_to_content(row))?;
         items_iter.collect()
     }
-    pub fn save_record(&mut self, record: &mut Record) -> Result<()> {
+    pub fn save_record(&self, record: &mut Record) -> Result<()> {
         record.set_last_modified(chrono::Local::now());
         let name = record.name();
         let created = record.created();
@@ -109,7 +109,7 @@ impl Database {
         }
         Ok(())
     }
-    pub fn save_content(&mut self, id_record: u64, content: &mut Content) -> Result<()> {
+    pub fn save_content(&self, id_record: u64, content: &mut Content) -> Result<()> {
         let label = content.label();
         let position = content.position();
         let required = content.required();

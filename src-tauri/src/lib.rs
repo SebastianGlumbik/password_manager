@@ -1,14 +1,44 @@
 mod database;
+mod frontend;
 mod utils;
 
-use crate::database::models::traits::Id;
-use crate::database::*;
-use crate::models::{basic, specific, Category, Content, Record};
+use database::Database;
+use frontend::*;
+use tauri::{Manager, WindowBuilder};
 
 //TODO Comments for whole project
 //TODO csv export/import, cloud backup
 
+/// Runs the application. If the database does not exist, it will open the login window.
 pub async fn run() -> Result<(), &'static str> {
+    tauri::Builder::default()
+        .setup(|app| {
+            let url = if database_exists(app.app_handle()).is_some() {
+                "/src/html/login.html"
+            } else {
+                "/src/html/register.html"
+            };
+            WindowBuilder::new(app, "main", tauri::WindowUrl::App(url.into()))
+                .resizable(true)
+                .title("Password Manager")
+                .min_inner_size(640f64, 480f64)
+                .inner_size(800f64, 600f64)
+                .build()?;
+            Ok(())
+        })
+        .manage(DatabaseConnection::default())
+        .invoke_handler(tauri::generate_handler![
+            database_exists,
+            login,
+            start_over,
+            register
+        ])
+        .run(tauri::generate_context!())
+        .map_err(|_| "Failed to run tauri application")
+}
+
+/*
+async fn console_test() -> Result<(), &'static str> {
     let mut database = Database::open("password")?;
 
     let mut record1 = Record::new("Example".to_string(), Category::Login);
@@ -104,8 +134,7 @@ pub async fn run() -> Result<(), &'static str> {
     }
     Ok(())
 }
-
-// TODO some struct password manager
+*/
 
 //TODO Tests
 #[cfg(test)]

@@ -1,5 +1,48 @@
 # Password Manager
 **Bachelor thesis**
+
+## Build guide
+### Prerequisites
+To build this application you need to have installed:
+- **Rust (cargo)**
+  - https://www.rust-lang.org/tools/install
+- **Node.js (npm)**
+  - https://nodejs.org/en/download/
+
+#### macOS
+On macOS you need to have installed Xcode Command Line Tools. 
+You can install them by running `xcode-select --install` in terminal.
+
+#### Linux
+On Linux you need to install a couple of system dependencies.
+For **Ubuntu** you can install them by running:
+```
+sudo apt update
+sudo apt install libwebkit2gtk-4.0-dev \
+    build-essential \
+    curl \
+    wget \
+    file \
+    libssl-dev \
+    libgtk-3-dev \
+    libayatana-appindicator3-dev \
+    librsvg2-dev
+```
+If you are using other Linux distribution please refer to https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-linux.
+
+### Building
+1. Clone this repository.
+2. Move to repository directory.
+3. Run `npm install` to install dependencies.
+4. Run `npm run tauri build` to build the application.
+
+#### Notes
+- This project was configured for macOS and Linux. **Windows is not supported.**
+- This project was tested on macOS 14 and Ubuntu 22.04.
+- Be sure to have the latest version of Rust and Node.js installed.
+- If you want to run the application in development mode, run `npm run tauri dev` instead of `npm run tauri build`.
+- If you have any problems with building the application, please make sure that you have installed all the prerequisites. For more information refer to https://tauri.app/v1/guides/getting-started/prerequisites and https://tauri.app/v1/guides/building/
+
 ## Crates
 Crates and their usage in this project:
 - [rusqlite](https://crates.io/crates/rusqlite) - Storing data in SQLite database with build in [sqlcipher](https://github.com/sqlcipher/sqlcipher) for encryption.

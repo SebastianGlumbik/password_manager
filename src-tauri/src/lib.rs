@@ -8,17 +8,28 @@ use tauri::{Manager, WindowBuilder};
 
 //TODO Comments for whole project
 //TODO csv export/import, cloud backup
+//TODO disable context menu in final build
 
-/// Runs the application. If the database does not exist, it will open the login window.
+#[derive(Clone, serde::Serialize)]
+struct Payload {
+    args: Vec<String>,
+    cwd: String,
+}
+
+/// Runs the application. If the database does not exist, it will open the register window.
 pub async fn run() -> Result<(), &'static str> {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
+            app.emit_all("single-instance", Payload { args: argv, cwd })
+                .unwrap_or_default();
+        }))
         .setup(|app| {
-            let url = if database_exists(app.app_handle()).is_some() {
-                "/src/html/login.html"
+            let (url, label) = if database_exists(app.app_handle()).is_some() {
+                ("/src/login.html", "login")
             } else {
-                "/src/html/register.html"
+                ("/src/register.html", "register")
             };
-            WindowBuilder::new(app, "main", tauri::WindowUrl::App(url.into()))
+            WindowBuilder::new(app, label, tauri::WindowUrl::App(url.into()))
                 .resizable(true)
                 .title("Password Manager")
                 .min_inner_size(640f64, 480f64)

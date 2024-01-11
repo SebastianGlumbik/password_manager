@@ -27,6 +27,6 @@ pub fn register(
 
     connect_database(password, connection, app_handle)?;
     window
-        .eval("window.location.href = '/src/html/main.html'")
+        .eval("window.location.href = 'main.html'")
         .map_err(|_| "Failed to redirect")
 }

@@ -14,10 +14,24 @@ pub fn login(
         return Err("Database does not exist, please start over");
     }
 
-    connect_database(password, connection, app_handle)?;
-    window
-        .eval("window.location.href = '/src/html/main.html'")
-        .map_err(|_| "Failed to redirect")
+    connect_database(password, connection, app_handle.clone())?;
+
+    window.close().map_err(|_| "Failed to close window")?;
+
+    // TODO change also in register.rs maybe separate function for building window
+    WindowBuilder::new(
+        &app_handle,
+        "main",
+        tauri::WindowUrl::App("/src/main.html".into()),
+    )
+    .resizable(true)
+    .title("Password Manager")
+    .min_inner_size(640f64, 480f64)
+    .inner_size(800f64, 600f64)
+    .build()
+    .map_err(|_| "Failed to open new window")?;
+
+    Ok(())
 }
 
 /// Deletes the database file and restarts the application.

@@ -13,8 +13,9 @@ tauri-build = { version = "1.5.1", features = [] }
 
 [dependencies]
 tauri = { version = "1.5.4", features = [ "dialog-all", "dialog"] }
-serde = { version = "1.0.193", features = ["derive"] }
-serde_json = "1.0.108"
+tauri-plugin-single-instance = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
+serde = { version = "1.0.195", features = ["derive"] }
+serde_json = "1.0.111"
 rusqlite = { version = "0.30.0", features = ["bundled-sqlcipher", "chrono"] }
 zeroize = { version = "1.7.0", features = ["zeroize_derive"] }
 totp-rs = { version = "5.4.0", features = ["otpauth", "zeroize"] }

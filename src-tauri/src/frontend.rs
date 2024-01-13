@@ -8,6 +8,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::State;
+use tauri::{AppHandle, Window};
 
 const DATABASE_FILE_NAME: &str = "database.db";
 
@@ -27,7 +28,7 @@ impl DatabaseConnection {
 /// Looks for a database file in the app local data directory and returns its path if it exists.
 /// For macOS, the data directory is ~/Library/Application Support/\<APPLICATION\>
 #[tauri::command]
-pub fn database_exists(app_handle: tauri::AppHandle) -> Option<PathBuf> {
+pub fn database_exists(app_handle: AppHandle) -> Option<PathBuf> {
     if let Some(path) = app_handle
         .path_resolver()
         .app_local_data_dir()
@@ -45,7 +46,7 @@ pub fn database_exists(app_handle: tauri::AppHandle) -> Option<PathBuf> {
 pub fn connect_database(
     password: &str,
     connection: State<DatabaseConnection>,
-    app_handle: tauri::AppHandle,
+    app_handle: AppHandle,
 ) -> Result<(), &'static str> {
     let path = match database_exists(app_handle.clone()) {
         Some(path_buf) => path_buf
@@ -73,4 +74,34 @@ pub fn connect_database(
         }
         Err(_) => Err("Failed to access database lock"),
     }
+}
+
+/// Will close the current window and create the main window. If main window creation fails, the application will exit.
+pub fn create_main_window(app_handle: AppHandle, window: Window) -> Result<(), &'static str> {
+    window
+        .close()
+        .map_err(|_| "Failed to close current window")?;
+
+    if WindowBuilder::new(
+        &app_handle,
+        "main",
+        tauri::WindowUrl::App("/src/main.html".into()),
+    )
+    .title(app_handle.package_info().name.as_str())
+    .resizable(true)
+    .min_inner_size(640f64, 480f64)
+    .inner_size(800f64, 600f64)
+    .menu(Menu::os_default(app_handle.package_info().name.as_str()))
+    .build()
+    .is_err()
+    {
+        tauri::api::dialog::blocking::message(
+            Some(&window),
+            "Error",
+            "Failed to create main window, application will now exit",
+        );
+        app_handle.exit(1);
+    };
+
+    Ok(())
 }

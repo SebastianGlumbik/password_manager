@@ -1,4 +1,13 @@
-//document.addEventListener('contextmenu', event => event.preventDefault());
+/*
+TODO disable context menu in final build
+window.addEventListener('contextmenu', function(event) {
+    let target = event.target as HTMLInputElement;
+    if(target.type !== "password" && target.type !== "text") {
+        event.preventDefault();
+    }
+});
+*/
+
 
 export function show_error_message(error: string, error_element_id: string = "error_message") {
     let errorMessageElement = document.getElementById(error_element_id);

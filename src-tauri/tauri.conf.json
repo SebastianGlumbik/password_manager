@@ -3,19 +3,12 @@
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
     "devPath": "http://localhost:1420",
-    "distDir": "../dist",
-    "withGlobalTauri": false
+    "distDir": "../dist"
   },
   "package": {
     "productName": "Password Manager"
   },
   "tauri": {
-    "allowlist": {
-      "all": false,
-      "dialog": {
-        "all": true
-      }
-    },
     "bundle": {
       "active": true,
       "targets": "all",
@@ -28,12 +21,11 @@
         "icons/icon.ico"
       ],
       "category": "Utility",
-      "macOS": {
-        "minimumSystemVersion": "11.0"
-      }
+      "shortDescription": "Password Manager",
+      "longDescription": "Password manager for bachelor thesis"
     },
     "security": {
-      "csp": null
+      "csp": "default-src 'self'"
     }
   }
 }

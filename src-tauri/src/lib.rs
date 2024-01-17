@@ -4,67 +4,53 @@ mod utils;
 
 use database::Database;
 use frontend::*;
-use tauri::{CustomMenuItem, Menu, MenuEntry, Submenu};
-use tauri::{Manager, WindowBuilder};
+use tauri::async_runtime::block_on;
+use tauri::{Manager, State};
+use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
 //TODO Comments for whole project
 //TODO csv export/import, cloud backup
 
+/// Payload for single instance plugin.
 #[derive(Clone, serde::Serialize)]
 struct Payload {
     args: Vec<String>,
     cwd: String,
 }
 
-/// Runs the application. If the database does not exist, it will open the register window.
-pub async fn run() -> Result<(), &'static str> {
-    tauri::Builder::default()
+/// Runs the tauri application.
+/// Used plugins:
+/// - https://github.com/tauri-apps/plugins-workspace/tree/v1/plugins/single-instance
+/// - https://github.com/tauri-apps/plugins-workspace/tree/v1/plugins/window-state
+///
+/// Note: The window-state plugin is only used on macOS due to bug contained in the plugin.
+pub fn run() -> anyhow::Result<()> {
+    let app_builder = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
             app.emit_all("single-instance", Payload { args: argv, cwd })
                 .unwrap_or_default();
         }))
-        .setup(|app| {
-            #[cfg(target_os = "macos")]
-            let mut menu = Menu::os_default(app.package_info().name.as_str());
-            #[cfg(target_os = "linux")]
-            let mut menu = Menu::default();
-            let (url, label, width, height, menu) = if database_exists(app.app_handle()).is_some() {
-                #[cfg(target_os = "macos")]
-                if let MenuEntry::Submenu(submenu) = &mut menu.items[1] {
-                    submenu.inner = Menu::new()
-                        .add_item(CustomMenuItem::new("Start Over".to_string(), "Start Over"));
-                }
-                #[cfg(target_os = "linux")]
-                let menu = menu.add_submenu(Submenu::new(
-                    "File".to_string(),
-                    Menu::new()
-                        .add_item(CustomMenuItem::new("Start Over".to_string(), "Start Over")),
-                ));
-                ("/src/login.html", "login", 400f64, 400f64, menu)
-            } else {
-                #[cfg(target_os = "macos")]
-                menu.items.remove(1);
-                ("/src/register.html", "register", 600f64, 400f64, menu)
-            };
-            let window = WindowBuilder::new(app, label, tauri::WindowUrl::App(url.into()))
-                .title(app.package_info().name.as_str())
-                .resizable(false)
-                .inner_size(width, height)
-                .menu(menu)
-                .build()?;
-            let app_handle = app.app_handle();
-            let window_clone = window.clone();
-            window.on_menu_event(move |event| {
-                if event.menu_item_id() == "Start Over" {
-                    start_over(app_handle.clone(), window_clone.clone());
-                }
-            });
-            Ok(())
-        })
         .manage(DatabaseConnection::default())
-        .invoke_handler(tauri::generate_handler![database_exists, login, register])
-        .run(tauri::generate_context!())
-        .map_err(|_| "Failed to run tauri application")
+        .invoke_handler(tauri::generate_handler![
+            initialize_window,
+            database_exists,
+            login,
+            register,
+            load_data
+        ]);
+
+    #[cfg(target_os = "macos")]
+    let app_builder = app_builder.plugin(tauri_plugin_window_state::Builder::default().build());
+
+    let app = app_builder.build(tauri::generate_context!())?;
+
+    block_on(initialize_window(app.state(), app.app_handle()))?;
+
+    app.run(|_app_handle, _event| {
+        // Can react to events
+    });
+
+    Ok(())
 }
 
 /*
@@ -165,9 +151,3 @@ async fn console_test() -> Result<(), &'static str> {
     Ok(())
 }
 */
-
-//TODO Tests
-#[cfg(test)]
-mod tests {
-    use super::*;
-}

@@ -1,5 +1,55 @@
 use super::*;
 
+pub fn create_login_menu(package_name: &str) -> Menu {
+    let mut menu = Menu::default();
+
+    #[cfg(target_os = "macos")]
+    {
+        menu = Menu::os_default(package_name);
+        if let MenuEntry::Submenu(submenu) = &mut menu.items[1] {
+            submenu.inner =
+                Menu::new().add_item(CustomMenuItem::new("Start Over".to_string(), "Start Over"));
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        menu = menu.add_submenu(Submenu::new(
+            "File".to_string(),
+            Menu::new().add_item(CustomMenuItem::new("Start Over".to_string(), "Start Over")),
+        ));
+    }
+
+    menu
+}
+
+pub fn create_login_window(app_handle: AppHandle) -> tauri::Result<()> {
+    if app_handle.get_window("login").is_some() {
+        return Ok(());
+    }
+
+    let window = WindowBuilder::new(
+        &app_handle,
+        "login",
+        tauri::WindowUrl::App("index.html".into()),
+    )
+    .title(app_handle.package_info().name.as_str())
+    .disable_file_drop_handler()
+    .resizable(false)
+    .inner_size(400f64, 400f64)
+    .menu(create_login_menu(app_handle.package_info().name.as_str()))
+    .build()?;
+
+    let window_clone = window.clone();
+    window.on_menu_event(move |event| {
+        if event.menu_item_id() == "Start Over" {
+            block_on(start_over(app_handle.clone(), window_clone.clone()));
+        }
+    });
+
+    Ok(())
+}
+
 /// Login function for the frontend.
 /// - Checks if the database exist
 /// - Opens the database
@@ -10,7 +60,7 @@ pub async fn login<'a, 'b>(
     app_handle: AppHandle,
     window: Window,
 ) -> Result<(), &'static str> {
-    if database_exists(app_handle.clone()).is_none() {
+    if database_exists(app_handle.clone()).await.is_none() {
         tauri::api::dialog::blocking::message(
             Some(&window),
             "Error",
@@ -19,38 +69,18 @@ pub async fn login<'a, 'b>(
         app_handle.restart();
     }
 
-    connect_database(password, connection, app_handle.clone())?;
+    connect_database(password, connection, app_handle.clone()).await?;
 
-    create_main_window(app_handle, window)?;
+    // Must be called in this order
+
+    #[cfg(target_os = "macos")]
+    app_handle
+        .save_window_state(StateFlags::all())
+        .unwrap_or_default();
+
+    create_main_window(app_handle).map_err(|_| "Failed to create main window")?;
+
+    window.close().map_err(|_| "Failed to close window")?;
 
     Ok(())
-}
-
-/// Deletes the database file and restarts the application.
-/// - Has a confirmation dialog before deleting the database file
-/// - Has a message dialog if the database file could not be deleted
-pub fn start_over(app_handle: AppHandle, window: Window) {
-    if let Some(path_buf) = database_exists(app_handle.clone()) {
-        let window_close = window.clone();
-        tauri::api::dialog::ask(
-            Some(&window),
-            "Starting over",
-            "Are you sure you want to continue? This action will permanently delete all passwords.",
-            move |answer| {
-                if answer {
-                    if let Err(error) = fs::remove_file(path_buf) {
-                        tauri::api::dialog::message(
-                            Some(&window_close),
-                            "Error",
-                            format!("Failed to delete database file: {}", error),
-                        );
-                    } else {
-                        app_handle.restart();
-                    }
-                }
-            },
-        );
-    } else {
-        app_handle.restart();
-    }
 }

@@ -1,34 +1,33 @@
 mod login;
+mod main;
 mod register;
 
 use super::*;
 pub use login::*;
+pub use main::*;
 pub use register::*;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
-use tauri::State;
-use tauri::{AppHandle, Window};
+use tauri::async_runtime::block_on;
+use tauri::{AppHandle, CustomMenuItem, MenuEntry, Submenu, Window};
+use tauri::{Menu, State, WindowBuilder};
 
+/// Name of the database file.
 const DATABASE_FILE_NAME: &str = "database.db";
 
-/// Database connection for the frontend.
+/// Database connection for tauri state.
+#[derive(Default)]
 pub struct DatabaseConnection {
     database: Mutex<Option<Database>>,
 }
 
-impl DatabaseConnection {
-    pub fn default() -> Self {
-        Self {
-            database: Default::default(),
-        }
-    }
-}
-
 /// Looks for a database file in the app local data directory and returns its path if it exists.
-/// For macOS, the data directory is ~/Library/Application Support/\<APPLICATION\>
+/// Path for data directory:
+/// - macOS: ~/Library/Application Support/\<APPLICATION\>
+/// - Linux:  ~/.local/share/\<APPLICATION\>
 #[tauri::command]
-pub fn database_exists(app_handle: AppHandle) -> Option<PathBuf> {
+pub async fn database_exists(app_handle: AppHandle) -> Option<PathBuf> {
     if let Some(path) = app_handle
         .path_resolver()
         .app_local_data_dir()
@@ -42,13 +41,47 @@ pub fn database_exists(app_handle: AppHandle) -> Option<PathBuf> {
     None
 }
 
+#[derive(Clone, serde::Serialize)]
+pub enum WindowType {
+    Login,
+    Register,
+    Main,
+}
+
+#[tauri::command]
+pub async fn initialize_window<'a>(
+    connection: State<'a, DatabaseConnection>,
+    app_handle: AppHandle,
+) -> tauri::Result<WindowType> {
+    match connection.database.lock() {
+        Ok(database) => {
+            if database.is_some() {
+                create_main_window(app_handle)?;
+                return Ok(WindowType::Main);
+            }
+        }
+        Err(_) => app_handle.exit(1),
+    }
+
+    match database_exists(app_handle.clone()).await {
+        Some(_) => {
+            create_login_window(app_handle)?;
+            Ok(WindowType::Login)
+        }
+        None => {
+            create_register_window(app_handle)?;
+            Ok(WindowType::Register)
+        }
+    }
+}
+
 /// Opens connection to the database. If the database does not exist, it will be created.
-pub fn connect_database(
-    password: &str,
-    connection: State<DatabaseConnection>,
+pub async fn connect_database<'a, 'b>(
+    password: &'a str,
+    connection: State<'b, DatabaseConnection>,
     app_handle: AppHandle,
 ) -> Result<(), &'static str> {
-    let path = match database_exists(app_handle.clone()) {
+    let path = match database_exists(app_handle.clone()).await {
         Some(path_buf) => path_buf
             .to_str()
             .ok_or("Path is not valid UTF-8")?
@@ -76,32 +109,31 @@ pub fn connect_database(
     }
 }
 
-/// Will close the current window and create the main window. If main window creation fails, the application will exit.
-pub fn create_main_window(app_handle: AppHandle, window: Window) -> Result<(), &'static str> {
-    window
-        .close()
-        .map_err(|_| "Failed to close current window")?;
-
-    if WindowBuilder::new(
-        &app_handle,
-        "main",
-        tauri::WindowUrl::App("/src/main.html".into()),
-    )
-    .title(app_handle.package_info().name.as_str())
-    .resizable(true)
-    .min_inner_size(640f64, 480f64)
-    .inner_size(800f64, 600f64)
-    .menu(Menu::os_default(app_handle.package_info().name.as_str()))
-    .build()
-    .is_err()
-    {
-        tauri::api::dialog::blocking::message(
+/// Deletes the database file and restarts the application.
+/// - Has a confirmation dialog before deleting the database file
+/// - Has a message dialog if the database file could not be deleted
+pub async fn start_over(app_handle: AppHandle, window: Window) {
+    if let Some(path_buf) = database_exists(app_handle.clone()).await {
+        let window_close = window.clone();
+        tauri::api::dialog::ask(
             Some(&window),
-            "Error",
-            "Failed to create main window, application will now exit",
+            "Starting over",
+            "Are you sure you want to continue? This action will permanently delete all passwords.",
+            move |answer| {
+                if answer {
+                    if let Err(error) = fs::remove_file(path_buf) {
+                        tauri::api::dialog::message(
+                            Some(&window_close),
+                            "Error",
+                            format!("Failed to delete database file: {}", error),
+                        );
+                    } else {
+                        app_handle.restart();
+                    }
+                }
+            },
         );
-        app_handle.exit(1);
-    };
-
-    Ok(())
+    } else {
+        app_handle.restart();
+    }
 }

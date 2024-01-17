@@ -87,7 +87,7 @@
   font-style: italic;
 }
 
-body {
+body, #root {
   @apply m-0;
   @apply bg-[#F6F6F6] dark:bg-[#282828];
   @apply h-screen;
@@ -102,10 +102,10 @@ a {
 }
 
 svg {
-  @apply fill-[#252525] dark:fill-[#E9E9E9]
+  @apply fill-[#252525] dark:fill-[#E9E9E9];
 }
 
-input {;
+input {
   @apply bg-[#DADADA] dark:bg-[#414141];
   @apply placeholder:text-[#282828] dark:placeholder:text-[#EDECEC];
 }

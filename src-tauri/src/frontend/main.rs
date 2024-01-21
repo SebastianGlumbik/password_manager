@@ -1,7 +1,8 @@
 use super::*;
 
 pub fn create_main_menu(package_name: &str) -> Menu {
-    let mut menu: Menu;
+    #[allow(unused)]
+    let mut menu = Menu::default();
 
     #[cfg(target_os = "macos")]
     {
@@ -11,13 +12,15 @@ pub fn create_main_menu(package_name: &str) -> Menu {
 
     #[cfg(target_os = "linux")]
     {
-        menu = Menu::default();
         // TODO add menu items for Linux
     }
 
     menu
 }
 
+/// Creates main window with specific menu.
+/// # Errors
+/// Returns an error if the window cannot be created. It will **not** return an error if the window already exists.
 pub fn create_main_window(app_handle: AppHandle) -> tauri::Result<()> {
     if app_handle.get_window("main").is_some() {
         return Ok(());
@@ -32,8 +35,12 @@ pub fn create_main_window(app_handle: AppHandle) -> tauri::Result<()> {
     .disable_file_drop_handler()
     .resizable(true)
     .min_inner_size(640f64, 480f64)
-    .menu(create_main_menu(app_handle.package_info().name.as_str()))
-    .build()?;
+    .menu(create_main_menu(app_handle.package_info().name.as_str()));
+
+    #[cfg(target_os = "macos")]
+    let window = window.visible(false);
+
+    let window = window.build()?;
 
     window.on_menu_event(move |event| {
         // TODO handle menu events, window.emit() can be used to send events to the frontend
@@ -41,6 +48,7 @@ pub fn create_main_window(app_handle: AppHandle) -> tauri::Result<()> {
 
     Ok(())
 }
+
 #[tauri::command]
 pub async fn load_data() -> Result<String, &'static str> {
     // Simulate loading data

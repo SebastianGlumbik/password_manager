@@ -22,7 +22,7 @@ zeroize = { version = "1.7.0", features = ["zeroize_derive"] }
 totp-rs = { version = "5.4.0", features = ["otpauth", "zeroize"] }
 passwords = { version = "3.1.16", features = ["common-password"] }
 chrono = "0.4.31"
-secrecy = "0.8.0"
+secrecy = { version = "0.8.0", features = ["serde"] }
 regex = "1.10.2"
 sha1 = "0.10.6"
 reqwest = "0.11.23"

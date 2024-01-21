@@ -5,7 +5,7 @@ mod utils;
 use database::Database;
 use frontend::*;
 use tauri::async_runtime::block_on;
-use tauri::{Manager, State};
+use tauri::Manager;
 use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
 //TODO Comments for whole project
@@ -23,7 +23,7 @@ struct Payload {
 /// - https://github.com/tauri-apps/plugins-workspace/tree/v1/plugins/single-instance
 /// - https://github.com/tauri-apps/plugins-workspace/tree/v1/plugins/window-state
 ///
-/// Note: The window-state plugin is only used on macOS due to bug contained in the plugin.
+/// Note: The window-state plugin is only used on macOS due to bug on Linux contained in the plugin.
 pub fn run() -> anyhow::Result<()> {
     let app_builder = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {

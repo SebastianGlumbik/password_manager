@@ -6,12 +6,13 @@ use super::*;
 pub use login::*;
 pub use main::*;
 pub use register::*;
+use secrecy::{ExposeSecret, SecretString};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
-use tauri::async_runtime::block_on;
-use tauri::{AppHandle, CustomMenuItem, MenuEntry, Submenu, Window};
-use tauri::{Menu, State, WindowBuilder};
+#[cfg(target_os = "linux")]
+use tauri::Submenu;
+use tauri::{AppHandle, CustomMenuItem, Menu, MenuEntry, MenuItem, State, Window, WindowBuilder};
 
 /// Name of the database file.
 const DATABASE_FILE_NAME: &str = "database.db";
@@ -41,6 +42,7 @@ pub async fn database_exists(app_handle: AppHandle) -> Option<PathBuf> {
     None
 }
 
+/// Window types that can be created.
 #[derive(Clone, serde::Serialize)]
 pub enum WindowType {
     Login,
@@ -48,19 +50,19 @@ pub enum WindowType {
     Main,
 }
 
+/// Creates specific window based on the database state and returns the window type.
+/// # Errors
+/// Returns an error if the window cannot be created.
 #[tauri::command]
 pub async fn initialize_window<'a>(
     connection: State<'a, DatabaseConnection>,
     app_handle: AppHandle,
 ) -> tauri::Result<WindowType> {
-    match connection.database.lock() {
-        Ok(database) => {
-            if database.is_some() {
-                create_main_window(app_handle)?;
-                return Ok(WindowType::Main);
-            }
+    if let Ok(database) = connection.database.lock() {
+        if database.is_some() {
+            create_main_window(app_handle)?;
+            return Ok(WindowType::Main);
         }
-        Err(_) => app_handle.exit(1),
     }
 
     match database_exists(app_handle.clone()).await {
@@ -76,8 +78,10 @@ pub async fn initialize_window<'a>(
 }
 
 /// Opens connection to the database. If the database does not exist, it will be created.
+/// # Errors
+/// Returns an error if the database cannot be opened.
 pub async fn connect_database<'a, 'b>(
-    password: &'a str,
+    password: SecretString,
     connection: State<'b, DatabaseConnection>,
     app_handle: AppHandle,
 ) -> Result<(), &'static str> {
@@ -102,7 +106,7 @@ pub async fn connect_database<'a, 'b>(
 
     match connection.database.lock() {
         Ok(mut database) => {
-            *database = Some(Database::open(&path, password)?);
+            *database = Some(Database::open(&path, password.expose_secret())?);
             Ok(())
         }
         Err(_) => Err("Failed to access database lock"),
@@ -110,6 +114,7 @@ pub async fn connect_database<'a, 'b>(
 }
 
 /// Deletes the database file and restarts the application.
+/// # Dialogs
 /// - Has a confirmation dialog before deleting the database file
 /// - Has a message dialog if the database file could not be deleted
 pub async fn start_over(app_handle: AppHandle, window: Window) {

@@ -3,10 +3,12 @@ pub mod specific;
 pub mod traits;
 
 use crate::impl_id;
+use serde::{Deserialize, Serialize};
 use traits::{Id, Label, Position, Required};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-#[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop)]
+// TODO Serialize and Deserialize
+#[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop, Serialize)]
 pub enum Content {
     Number(basic::Number),
     Text(basic::Text),
@@ -159,7 +161,7 @@ impl Required for Content {
     }
 }
 
-#[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop)]
+#[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop, Serialize, Deserialize)]
 pub enum Category {
     Login,
     BankCard,
@@ -186,7 +188,8 @@ impl Category {
     }
 }
 
-#[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop)]
+// TODO Add title and subtitle
+#[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop, Serialize, Deserialize)]
 pub struct Record {
     id: u64,
     name: String,
@@ -230,7 +233,6 @@ impl Record {
         self.last_modified = last_modified;
     }
     pub fn set_category(&mut self, category: Category) {
-        self.category.zeroize();
         self.category = category;
     }
 }

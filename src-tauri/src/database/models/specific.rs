@@ -5,16 +5,18 @@ use crate::{
 
 use regex::Regex;
 use secrecy::SecretString;
+use serde::Serialize;
 use std::ops::Not;
 use totp_rs::{Rfc6238, TOTP as TOTP_RS};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-#[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop)]
+#[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop, Serialize)]
 pub struct Totp {
     id: u64,
     label: String,
     position: u32,
     required: bool,
+    #[serde(skip)]
     totp: TOTP_RS,
 }
 
@@ -78,7 +80,7 @@ impl ToSecretString for Totp {
     }
 }
 
-#[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop)]
+#[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop, Serialize)]
 pub struct Url {
     id: u64,
     label: String,
@@ -121,12 +123,13 @@ impl Url {
     }
 }
 
-#[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop)]
+#[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop, Serialize)]
 pub struct Password {
     id: u64,
     label: String,
     position: u32,
     required: bool,
+    #[serde(skip)]
     value: String,
 }
 
@@ -149,7 +152,7 @@ impl Password {
     }
 }
 
-#[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop)]
+#[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop, Serialize)]
 pub struct Email {
     id: u64,
     label: String,
@@ -201,7 +204,7 @@ impl Email {
     }
 }
 
-#[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop)]
+#[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop, Serialize)]
 pub struct PhoneNumber {
     id: u64,
     label: String,
@@ -252,12 +255,13 @@ impl PhoneNumber {
     }
 }
 
-#[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop)]
+#[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop, Serialize)]
 pub struct BankCardNumber {
     id: u64,
     label: String,
     position: u32,
     required: bool,
+    #[serde(skip)]
     value: String,
 }
 

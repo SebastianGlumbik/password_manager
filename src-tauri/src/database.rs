@@ -53,6 +53,7 @@ impl Database {
 
         Ok(Database { connection })
     }
+
     pub fn change_key(&mut self, new_password: &str) -> Result<(), &'static str> {
         let sql = SecretString::new(format!("PRAGMA rekey = '{new_password}';"));
         self.connection

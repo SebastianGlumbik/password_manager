@@ -2,9 +2,10 @@ use crate::database::models::traits::{Id, Label, Position, Required, ToSecretStr
 use crate::{impl_id, impl_label, impl_position, impl_required, impl_to_secret_string};
 
 use secrecy::SecretString;
+use serde::{Deserialize, Serialize};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-#[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop)]
+#[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop, Serialize, Deserialize)]
 pub struct Number {
     id: u64,
     label: String,
@@ -32,13 +33,15 @@ impl Number {
     }
 }
 
-#[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop)]
+#[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop, Serialize, Deserialize)]
 pub enum TextType {
     Normal,
     Long,
     Sensitive,
 }
-#[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop)]
+
+//TODO Skip sensitive text
+#[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop, Serialize, Deserialize)]
 pub struct Text {
     id: u64,
     label: String,
@@ -71,7 +74,7 @@ impl Text {
     }
 }
 
-#[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop)]
+#[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop, Serialize, Deserialize)]
 pub struct Datetime {
     id: u64,
     label: String,

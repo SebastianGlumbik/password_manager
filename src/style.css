@@ -93,6 +93,7 @@ body, #root {
   @apply h-screen;
   @apply text-[#252525] dark:text-[#E9E9E9];
   @apply text-[16px];
+  @apply select-none cursor-default selection:bg-blue-200;
   font-family: "Roboto", sans-serif;
 }
 
@@ -107,5 +108,6 @@ svg {
 
 input {
   @apply bg-[#DADADA] dark:bg-[#414141];
-  @apply placeholder:text-[#282828] dark:placeholder:text-[#EDECEC];
+  @apply placeholder:text-[#282828] dark:placeholder:text-[#EDECEC] placeholder:font-thin;
+  @apply appearance-none outline outline-transparent;
 }

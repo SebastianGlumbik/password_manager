@@ -15,13 +15,14 @@ tauri-build = { version = "1.5.1", features = [] }
 tauri = { version = "1.5.4", features = [ "dialog"] }
 tauri-plugin-single-instance = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
+tauri-plugin-context-menu = "0.7.0"
 serde = { version = "1.0.195", features = ["derive"] }
 serde_json = "1.0.111"
 rusqlite = { version = "0.30.0", features = ["bundled-sqlcipher", "chrono"] }
 zeroize = { version = "1.7.0", features = ["zeroize_derive"] }
 totp-rs = { version = "5.4.0", features = ["otpauth", "zeroize"] }
 passwords = { version = "3.1.16", features = ["common-password"] }
-chrono = "0.4.31"
+chrono = { version = "0.4.31", features = ["serde"] }
 secrecy = { version = "0.8.0", features = ["serde"] }
 regex = "1.10.2"
 sha1 = "0.10.6"

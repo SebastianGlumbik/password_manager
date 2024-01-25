@@ -20,12 +20,14 @@ struct Payload {
 
 /// Runs the tauri application.
 /// Used plugins:
+/// - https://crates.io/crates/tauri-plugin-context-menu
 /// - https://github.com/tauri-apps/plugins-workspace/tree/v1/plugins/single-instance
 /// - https://github.com/tauri-apps/plugins-workspace/tree/v1/plugins/window-state
 ///
 /// Note: The window-state plugin is only used on macOS due to bug on Linux contained in the plugin.
 pub fn run() -> anyhow::Result<()> {
     let app_builder = tauri::Builder::default()
+        .plugin(tauri_plugin_context_menu::init())
         .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
             app.emit_all("single-instance", Payload { args: argv, cwd })
                 .unwrap_or_default();
@@ -33,10 +35,13 @@ pub fn run() -> anyhow::Result<()> {
         .manage(DatabaseConnection::default())
         .invoke_handler(tauri::generate_handler![
             initialize_window,
-            database_exists,
             login,
             register,
-            load_data
+            get_all_records,
+            get_compromised_records,
+            get_all_content_for_record,
+            delete_record,
+            save_to_cloud
         ]);
 
     #[cfg(target_os = "macos")]

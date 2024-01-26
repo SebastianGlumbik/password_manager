@@ -1,6 +1,5 @@
 use super::*;
-use crate::database::models::traits::Id;
-use crate::database::models::{Category, Content, Record};
+use crate::database::model::{Category, Content, Record, Value};
 
 /// Window types that can be created.
 #[derive(Clone, serde::Serialize)]
@@ -79,7 +78,7 @@ pub async fn login<'a>(
 /// - Connection to the database fails
 /// - The main window cannot be created
 /// - The register window cannot be closed
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub async fn register<'a>(
     password: SecretString,
     confirm_password: SecretString,
@@ -126,16 +125,24 @@ pub async fn get_all_records<'a>(
     window: Window,
 ) -> Result<Vec<Record>, ()> {
     // Mock data for testing TODO: Remove
-    let mut login = Record::new("Login".to_string(), Category::Login);
+    let mut login = Record::new("Login".to_string(), "Subtitle".to_string(), Category::Login);
     login.set_id(1);
 
-    let mut card = Record::new("Card".to_string(), Category::BankCard);
+    let mut card = Record::new(
+        "Card".to_string(),
+        "Subtitle".to_string(),
+        Category::BankCard,
+    );
     card.set_id(2);
 
-    let mut note = Record::new("Note".to_string(), Category::Note);
+    let mut note = Record::new("Note".to_string(), "Subtitle".to_string(), Category::Note);
     note.set_id(3);
 
-    let mut custom = Record::new("Custom".to_string(), Category::Custom("Custom".to_string()));
+    let mut custom = Record::new(
+        "Custom".to_string(),
+        "Subtitle".to_string(),
+        Category::Custom("Custom".to_string()),
+    );
     custom.set_id(4);
 
     return Ok(vec![login, card, note, custom]);
@@ -181,7 +188,7 @@ pub async fn get_compromised_records<'a>(
         .await?;
 
         for content in &all_content {
-            if let Content::Password(password) = content {
+            if let Value::Password(password) = content.value() {
                 if utils::password::is_exposed(password.value())
                     .await
                     .unwrap_or(false)
@@ -239,7 +246,7 @@ pub async fn delete_record<'a>(
     if tauri::api::dialog::blocking::ask(
         Some(&window),
         "Delete record",
-        format!("Are you sure you want to delete {}?", record.name()),
+        format!("Are you sure you want to delete {}?", record.title()),
     ) {
         if let Ok(mut guard) = connection.database_mutex.lock() {
             if let Some(database) = guard.as_mut() {
@@ -266,4 +273,11 @@ pub async fn save_to_cloud() -> Result<String, &'static str> {
         "Last saved at {}",
         chrono::Local::now().format("%d.%m.%Y %H:%M")
     ))
+}
+
+#[tauri::command]
+pub async fn save_test(record: Record, content: Content) -> Result<(), &'static str> {
+    println!("Record: {:?}", record);
+    println!("Content: {:?}", content);
+    Ok(())
 }

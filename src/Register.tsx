@@ -7,7 +7,7 @@ import {invoke} from "@tauri-apps/api/tauri";
  * @return {JSX.Element} - Div containing the register form.
  */
 export default function Register(): JSX.Element {
-    const invokeRegister = async (password: string, confirmPassword: string) => await invoke("register", { password: password, confirmPassword: confirmPassword }).catch((register_error) => setError(register_error));
+    const invokeRegister = async (password: string, confirmPassword: string) => await invoke("register", { password: password, confirm_password: confirmPassword }).catch((register_error) => setError(register_error));
     const [input, setInput] = createSignal("");
     const [confirmInput, setConfirmInput] = createSignal("");
     const [password, setPassword] = createSignal<string>();

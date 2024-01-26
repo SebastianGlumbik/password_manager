@@ -41,7 +41,8 @@ pub fn run() -> anyhow::Result<()> {
             get_compromised_records,
             get_all_content_for_record,
             delete_record,
-            save_to_cloud
+            save_to_cloud,
+            save_test
         ]);
 
     #[cfg(target_os = "macos")]

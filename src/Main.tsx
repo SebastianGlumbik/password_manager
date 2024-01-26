@@ -4,11 +4,24 @@ import {invoke} from "@tauri-apps/api/tauri";
 import Loading from "./Loading.tsx";
 
 interface Record {
-    id: number;
-    name: string;
-    created: string;
-    last_modified: string;
+    id?: number;
+    title: string;
+    subtitle: string;
     category: string;
+    created?: string;
+    last_modified?: string;
+}
+
+interface Content {
+    id?: number;
+    label: string;
+    position: number;
+    required: boolean;
+    value: {
+        [key: string]: {
+            value?: number | string;
+        };
+    };
 }
 
 class Cloud {
@@ -57,7 +70,7 @@ export default function Main(): JSX.Element {
     const [compromisedRecords, {refetch: refetchCompromisedRecords }] = createResource(async (): Promise<Record[]> => invoke("get_compromised_records"));
     const compromisedExists = () => !compromisedRecords.loading && compromisedRecords()?.length as number > 0;
     const [search, setSearch] = createSignal("");
-    const filteredRecords = () => (compromisedOnly() ? compromisedRecords() : allRecords())?.filter(record => record.name?.includes(search())); /*(record.title.includes(search()) || record.subtitle.includes(search())));*/
+    const filteredRecords = () => (compromisedOnly() ? compromisedRecords() : allRecords())?.filter(record => (record.title.includes(search()) || record.subtitle.includes(search())));
     const [selected, setSelected] = createSignal<Record | Cloud |  undefined>(undefined);
     const [cloud, {refetch: uploadToCloud }] = createResource(async (): Promise<string> => invoke("save_to_cloud"));
 
@@ -167,10 +180,10 @@ export default function Main(): JSX.Element {
                                             </div>
                                             <div class="truncate">
                                                 <div class="text-[14px] truncate">
-                                                    {item.name}
+                                                    {item.title}
                                                 </div>
                                                 <div class="text-[12px] font-thin truncate">
-                                                    {/*item.subtitle*/}
+                                                    {item.subtitle}
                                                 </div>
                                             </div>
                                         </div>
@@ -194,7 +207,7 @@ export default function Main(): JSX.Element {
                         <Match when={selected() instanceof Cloud}>
                             <CloudSettings />
                         </Match>
-                        <Match when={(selected() as Record)?.id > 0}>
+                        <Match when={(selected() as Record)?.id as number > 0}>
                             <RecordDetail record={selected as () => Record} uploadToCloud={uploadToCloud}/>
                         </Match>
                     </Switch>
@@ -205,16 +218,29 @@ export default function Main(): JSX.Element {
 }
 
 function RecordDetail(props: {record: () => Record, uploadToCloud: () => void}) {
-    const [data] = createResource(props.record,async () => invoke("get_all_content_for_record", { id: props.record().id}));
-
-    console.log(data());
+    //const [data] = createResource(props.record,async () => invoke("get_all_content_for_record", { id: props.record().id}));
 
     onCleanup(() => {
         props.uploadToCloud();
     });
 
     return (
-        <p class="text-xl">{props.record().id}</p>
+        <p class="text-xl" onClick={async _ => {
+            let content : Content = {
+                label: "Text",
+                position: 1,
+                required: true,
+                value: {
+                    "Number": {
+                        value: 3
+                    }
+                }
+            }
+            console.log(Object.keys(content.value)[0] === "Text");
+            console.log(props.record());
+            console.log(content);
+            await invoke("save_test", {record: props.record(), content: content}).catch((error) => console.log(error));
+        }}>{props.record().id}</p>
     )
 }
 

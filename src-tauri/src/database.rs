@@ -1,8 +1,8 @@
-pub mod models;
+pub mod model;
 mod utils;
 
-use models::traits::{Id, Label, Position, Required, ToSecretString};
-use models::*;
+use crate::database::model::value::ToSecretString;
+use model::*;
 use rusqlite::{params, Connection, Result};
 use secrecy::{ExposeSecret, SecretString};
 
@@ -30,9 +30,10 @@ impl Database {
             .map_err(|_| "Invalid password")?;
 
         let sql = SecretString::new(
-                "create table if not exists Record (
+                        "create table if not exists Record (
                             id_record integer primary key,
-                            name text not null,
+                            title text not null,
+                            subtitle text not null,
                             created datetime not null,
                             last_modified datetime not null,
                             category text not null
@@ -43,7 +44,7 @@ impl Database {
                             label text not null,
                             position integer not null,
                             required integer not null,
-                            type text not null,
+                            kind text not null,
                             value text not null,
                             foreign key (id_record) references Record(id_record) on update cascade on delete cascade
                         );".to_string());
@@ -63,20 +64,21 @@ impl Database {
 
     pub fn get_record(&self, id_record: u64) -> Result<Record> {
         let sql = SecretString::new(
-            "SELECT id_record, name, created, last_modified, category FROM Record WHERE id_record = ?1;".to_string());
+            "SELECT id_record, title, subtitle, created, last_modified, category FROM Record WHERE id_record = ?1;".to_string());
         let mut stmt = self.connection.prepare(sql.expose_secret())?;
         stmt.query_row(params![id_record], |row| utils::row_to_record(row))
     }
 
     pub fn get_content(&self, id_content: u64) -> Result<Content> {
         let sql = SecretString::new(
-            "SELECT id_content, label, position, required, type, value FROM Content WHERE id_content = ?1;".to_string());
+            "SELECT id_content, label, position, required, kind, value FROM Content WHERE id_content = ?1;".to_string());
         let mut stmt = self.connection.prepare(sql.expose_secret())?;
         stmt.query_row(params![id_content], |row| utils::row_to_content(row))
     }
     pub fn get_all_records(&self) -> Result<Vec<Record>> {
         let sql = SecretString::new(
-            "SELECT id_record, name, created, last_modified, category FROM Record;".to_string(),
+            "SELECT id_record, title, subtitle, created, last_modified, category FROM Record;"
+                .to_string(),
         );
         let mut stmt = self.connection.prepare(sql.expose_secret())?;
         let items_iter = stmt.query_map([], |row| utils::row_to_record(row))?;
@@ -84,25 +86,27 @@ impl Database {
     }
 
     pub fn get_all_content_for_record(&self, id_record: u64) -> Result<Vec<Content>> {
-        let sql = SecretString::new("SELECT id_content, label, position, required, type, value FROM Content WHERE id_record = ?1;".to_string());
+        let sql = SecretString::new("SELECT id_content, label, position, required, kind, value FROM Content WHERE id_record = ?1;".to_string());
         let mut stmt = self.connection.prepare(sql.expose_secret())?;
         let items_iter = stmt.query_map([id_record], |row| utils::row_to_content(row))?;
         items_iter.collect()
     }
     pub fn save_record(&self, record: &mut Record) -> Result<()> {
         record.set_last_modified(chrono::Local::now());
-        let name = record.name();
+        let title = record.title();
+        let subtitle = record.subtitle();
         let created = record.created();
         let last_modified = record.last_modified();
-        let category = record.category().name();
+        let category = record.category().as_str();
         let id_record = record.id();
 
-        let mut params = params![name, created, last_modified, category, id_record].to_vec();
+        let mut params =
+            params![title, subtitle, created, last_modified, category, id_record].to_vec();
         let sql = if id_record == 0 {
             params.pop();
-            "INSERT INTO Record (name, created, last_modified, category) VALUES (?1, ?2, ?3, ?4);"
+            "INSERT INTO Record (title, subtitle, created, last_modified, category) VALUES (?1, ?2, ?3, ?4, ?5);"
         } else {
-            "UPDATE Record SET name = ?1, created = ?2, last_modified = ?3, category = ?4 WHERE id_record = ?5;"
+            "UPDATE Record SET title = ?1, subtitle = ?2, created = ?3, last_modified = ?4, category = ?5 WHERE id_record = ?6;"
         };
         self.connection.execute(sql, &*params)?;
         if id_record == 0 {
@@ -114,27 +118,28 @@ impl Database {
         let label = content.label();
         let position = content.position();
         let required = content.required();
-        let type_ = content.type_();
-        let secret_value = match &content {
-            Content::Number(number) => number.to_secret_string(),
-            Content::Text(text) => text.to_secret_string(),
-            Content::Datetime(datetime) => datetime.to_secret_string(),
-            Content::Password(password) => password.to_secret_string(),
-            Content::Totp(totp) => totp.to_secret_string(),
-            Content::Url(url) => url.to_secret_string(),
-            Content::Email(email) => email.to_secret_string(),
-            Content::PhoneNumber(phone_number) => phone_number.to_secret_string(),
-            Content::BankCardNumber(bank_card_number) => bank_card_number.to_secret_string(),
+        let kind = content.kind();
+        let secret_value = match &content.value() {
+            Value::Number(number) => number.to_secret_string(),
+            Value::Text(text) => text.to_secret_string(),
+            Value::SensitiveText(sensitive_text) => sensitive_text.to_secret_string(),
+            Value::Datetime(datetime) => datetime.to_secret_string(),
+            Value::Password(password) => password.to_secret_string(),
+            Value::Totp(totp) => totp.to_secret_string(),
+            Value::Url(url) => url.to_secret_string(),
+            Value::Email(email) => email.to_secret_string(),
+            Value::PhoneNumber(phone_number) => phone_number.to_secret_string(),
+            Value::BankCardNumber(bank_card_number) => bank_card_number.to_secret_string(),
         };
         let value = secret_value.expose_secret();
         let id_content = content.id();
-        let mut params = params![label, position, required, type_, value].to_vec();
+        let mut params = params![label, position, required, kind, value].to_vec();
         let sql = if id_content == 0 {
             params.append(&mut params![id_record].to_vec());
-            "INSERT INTO Content (label, position, required, type, value, id_record) VALUES (?1, ?2, ?3, ?4, ?5, ?6);"
+            "INSERT INTO Content (label, position, required, kind, value, id_record) VALUES (?1, ?2, ?3, ?4, ?5, ?6);"
         } else {
             params.append(&mut params![id_content].to_vec());
-            "UPDATE Content SET label = ?1, position = ?2, required = ?3, type = ?4, value = ?5 WHERE id_content = ?6;"
+            "UPDATE Content SET label = ?1, position = ?2, required = ?3, kind = ?4, value = ?5 WHERE id_content = ?6;"
         };
         self.connection.execute(sql, &*params)?;
         if id_content == 0 {

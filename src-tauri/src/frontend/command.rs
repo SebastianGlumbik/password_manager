@@ -1,5 +1,5 @@
 use super::*;
-use crate::database::model::{Category, Content, Record, Value};
+use crate::database::model::{value, Category, Content, Record, Value};
 
 /// Window types that can be created.
 #[derive(Clone, serde::Serialize)]
@@ -179,15 +179,17 @@ pub async fn get_compromised_records<'a>(
     let mut result = vec![];
 
     for record in records {
-        let all_content = get_all_content_for_record(
-            record.id(),
-            connection.clone(),
-            app_handle.clone(),
-            window.clone(),
-        )
-        .await?;
+        let mut all_content: Vec<Content> = vec![];
 
-        for content in &all_content {
+        if let Ok(guard) = connection.database_mutex.lock() {
+            if let Some(database) = guard.as_ref() {
+                if let Ok(content) = database.get_all_content_for_record(record.id()) {
+                    all_content = content;
+                }
+            }
+        }
+
+        for content in all_content {
             if let Value::Password(password) = content.value() {
                 if utils::password::is_exposed(password.value())
                     .await
@@ -209,14 +211,78 @@ pub async fn get_compromised_records<'a>(
 /// When error occurs, a blocking dialog message will be shown and the application will restart.
 #[tauri::command]
 pub async fn get_all_content_for_record<'a>(
-    id: u64,
+    record: Record,
     connection: State<'a, DatabaseConnection>,
+    totp_manager: State<'a, TOTPManager>,
     app_handle: AppHandle,
     window: Window,
 ) -> Result<Vec<Content>, ()> {
-    if let Ok(guard) = connection.database_mutex.lock() {
+    totp_manager
+        .add_secret(0, "xprbaclyjlxlixkxxp5hlx6bkrpm4qmi".to_string())
+        .map_err(|_| ())?;
+    if record.id() == 0 {
+        let mut content = vec![];
+        match record.category() {
+            Category::Login => {
+                content.push(Content::new(
+                    "Website".to_string(),
+                    1,
+                    true,
+                    Value::Url(value::Url::default()),
+                ));
+                content.push(Content::new(
+                    "User".to_string(),
+                    2,
+                    true,
+                    Value::Text(value::Text::default()),
+                ));
+                content.push(Content::new(
+                    "Password".to_string(),
+                    3,
+                    true,
+                    Value::Password(value::Password::default()),
+                ));
+            }
+            Category::BankCard => {
+                content.push(Content::new(
+                    "Card number".to_string(),
+                    1,
+                    true,
+                    Value::BankCardNumber(value::BankCardNumber::default()),
+                ));
+                content.push(Content::new(
+                    "CVV".to_string(),
+                    2,
+                    true,
+                    Value::Number(value::Number::default()),
+                ));
+                content.push(Content::new(
+                    "Expiration date".to_string(),
+                    3,
+                    true,
+                    Value::Datetime(value::Datetime::default()),
+                ));
+                content.push(Content::new(
+                    "PIN".to_string(),
+                    4,
+                    true,
+                    Value::Number(value::Number::default()),
+                ));
+            }
+            Category::Note => {
+                content.push(Content::new(
+                    "Note".to_string(),
+                    1,
+                    true,
+                    Value::Text(value::Text::default()),
+                ));
+            }
+            Category::Custom(_) => {}
+        }
+        return Ok(content);
+    } else if let Ok(guard) = connection.database_mutex.lock() {
         if let Some(database) = guard.as_ref() {
-            if let Ok(content) = database.get_all_content_for_record(id) {
+            if let Ok(content) = database.get_all_content_for_record(record.id()) {
                 return Ok(content);
             }
         }
@@ -276,8 +342,13 @@ pub async fn save_to_cloud() -> Result<String, &'static str> {
 }
 
 #[tauri::command]
-pub async fn save_test(record: Record, content: Content) -> Result<(), &'static str> {
+pub async fn save_test<'a>(
+    record: Record,
+    content: Vec<Content>,
+    totp_manager: State<'a, TOTPManager>,
+) -> Result<(), &'static str> {
     println!("Record: {:?}", record);
     println!("Content: {:?}", content);
+    println!("TOTP: {:?}", totp_manager.get_code(&0));
     Ok(())
 }

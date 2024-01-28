@@ -3,25 +3,41 @@ import {createResource, createSignal, For, JSX, Match, onCleanup, Show, Suspense
 import {invoke} from "@tauri-apps/api/tauri";
 import Loading from "./Loading.tsx";
 
-interface Record {
+class Record {
     id?: number;
     title: string;
     subtitle: string;
     category: string;
     created?: string;
     last_modified?: string;
+
+    constructor(title: string, subtitle: string, category: string, created?: string, last_modified?: string, id?: number) {
+        this.id = id;
+        this.title = title;
+        this.subtitle = subtitle;
+        this.category = category;
+        this.created = created;
+        this.last_modified = last_modified;
+    }
 }
 
-interface Content {
+
+class Content {
     id?: number;
     label: string;
     position: number;
     required: boolean;
-    value: {
-        [key: string]: {
-            value?: number | string;
-        };
-    };
+    kind: string;
+    value?: number | string;
+
+    constructor(label: string, position: number, required: boolean, kind: string, value?: number | string, id?: number) {
+        this.id = id;
+        this.label = label;
+        this.position = position;
+        this.required = required;
+        this.kind = kind;
+        this.value = value;
+    }
 }
 
 class Cloud {
@@ -65,7 +81,7 @@ function GetRecordTitleSvg(props: {category: string, style: string}) {
  * @return {JSX.Element} - Div containing the main page.
  */
 export default function Main(): JSX.Element {
-    const [allRecords, {refetch: refetchAllRecords }] = createResource(async (): Promise<Record[]> => invoke("get_all_records"));
+    const [allRecords, {refetch: refetchAllRecords }] = createResource(async (): Promise<Record[]> => (await invoke("get_all_records") as Record[]).map((item: Record) => new Record(item.title, item.subtitle, item.category, item.created, item.last_modified, item.id)));
     const [compromisedOnly, setCompromisedOnly] = createSignal(false);
     const [compromisedRecords, {refetch: refetchCompromisedRecords }] = createResource(async (): Promise<Record[]> => invoke("get_compromised_records"));
     const compromisedExists = () => !compromisedRecords.loading && compromisedRecords()?.length as number > 0;
@@ -207,7 +223,7 @@ export default function Main(): JSX.Element {
                         <Match when={selected() instanceof Cloud}>
                             <CloudSettings />
                         </Match>
-                        <Match when={(selected() as Record)?.id as number > 0}>
+                        <Match when={selected() instanceof Record}>
                             <RecordDetail record={selected as () => Record} uploadToCloud={uploadToCloud}/>
                         </Match>
                     </Switch>
@@ -218,7 +234,7 @@ export default function Main(): JSX.Element {
 }
 
 function RecordDetail(props: {record: () => Record, uploadToCloud: () => void}) {
-    //const [data] = createResource(props.record,async () => invoke("get_all_content_for_record", { id: props.record().id}));
+    const [_data] = createResource(props.record,async (): Promise<Content[]> => invoke("get_all_content_for_record", { record: props.record()}));
 
     onCleanup(() => {
         props.uploadToCloud();
@@ -226,19 +242,22 @@ function RecordDetail(props: {record: () => Record, uploadToCloud: () => void}) 
 
     return (
         <p class="text-xl" onClick={async _ => {
-            let content : Content = {
-                label: "Text",
-                position: 1,
-                required: true,
-                value: {
-                    "Number": {
-                        value: 3
-                    }
-                }
-            }
-            console.log(Object.keys(content.value)[0] === "Text");
-            console.log(props.record());
+            let content : Content[] = [
+                {
+                    label: "Text",
+                    position: 1,
+                    required: true,
+                    kind: "TOTPSecret"
+                },
+                {
+                    label: "Text",
+                    position: 2,
+                    required: true,
+                    kind: "Text",
+                    value: "Hello world"
+                }];
             console.log(content);
+            console.log(_data());
             await invoke("save_test", {record: props.record(), content: content}).catch((error) => console.log(error));
         }}>{props.record().id}</p>
     )

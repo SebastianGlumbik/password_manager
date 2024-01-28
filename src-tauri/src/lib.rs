@@ -33,6 +33,7 @@ pub fn run() -> anyhow::Result<()> {
                 .unwrap_or_default();
         }))
         .manage(DatabaseConnection::default())
+        .manage(TOTPManager::default())
         .invoke_handler(tauri::generate_handler![
             initialize_window,
             login,

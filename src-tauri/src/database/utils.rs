@@ -4,7 +4,7 @@ use rusqlite::{Error, Result, Row};
 use zeroize::Zeroize;
 
 fn number_from_database(mut value: String) -> Result<Number, Error> {
-    let new_value = value.parse::<i128>();
+    let new_value = value.parse::<i64>();
     value.zeroize();
     match new_value {
         Ok(value) => Ok(Number::new(value)),
@@ -29,8 +29,8 @@ fn datetime_from_database(mut value: String) -> Result<Datetime, Error> {
     }
 }
 
-fn totp_from_database(url: String) -> Result<Totp, Error> {
-    match Totp::from_url(url) {
+fn totp_from_database(value: String) -> Result<TOTPSecret, Error> {
+    match TOTPSecret::new(value) {
         Ok(totp) => Ok(totp),
         Err(e) => Err(Error::InvalidColumnType(
             4,
@@ -124,7 +124,7 @@ pub fn row_to_content(row: &Row) -> Result<Content> {
         "SensitiveText" => Value::SensitiveText(SensitiveText::new(value)),
         "Datetime" => Value::Datetime(datetime_from_database(value)?),
         "Password" => Value::Password(Password::new(value)),
-        "TOTP" => Value::Totp(totp_from_database(value)?),
+        "TOTPSecret" => Value::TOTPSecret(totp_from_database(value)?),
         "URL" => Value::Url(url_from_database(value)?),
         "Email" => Value::Email(email_from_database(value)?),
         "PhoneNumber" => Value::PhoneNumber(phone_number_from_database(value)?),

@@ -125,7 +125,7 @@ impl Database {
             Value::SensitiveText(sensitive_text) => sensitive_text.to_secret_string(),
             Value::Datetime(datetime) => datetime.to_secret_string(),
             Value::Password(password) => password.to_secret_string(),
-            Value::Totp(totp) => totp.to_secret_string(),
+            Value::TOTPSecret(totp_secret) => totp_secret.to_secret_string(),
             Value::Url(url) => url.to_secret_string(),
             Value::Email(email) => email.to_secret_string(),
             Value::PhoneNumber(phone_number) => phone_number.to_secret_string(),

@@ -117,14 +117,14 @@ impl Record {
 }
 
 #[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop, Serialize, Deserialize)]
+#[serde(tag = "kind")]
 pub enum Value {
     Number(Number),
     Text(Text),
     SensitiveText(SensitiveText),
     Datetime(Datetime),
     Password(Password),
-    #[serde(skip_deserializing)]
-    Totp(Totp),
+    TOTPSecret(TOTPSecret),
     Url(Url),
     Email(Email),
     PhoneNumber(PhoneNumber),
@@ -138,6 +138,7 @@ pub struct Content {
     label: String,
     position: u32,
     required: bool,
+    #[serde(flatten)]
     value: Value,
 }
 
@@ -158,7 +159,7 @@ impl Content {
             Value::SensitiveText(_) => "SensitiveText",
             Value::Datetime(_) => "Datetime",
             Value::Password(_) => "Password",
-            Value::Totp(_) => "TOTP",
+            Value::TOTPSecret(_) => "TOTPSecret",
             Value::Url(_) => "URL",
             Value::Email(_) => "Email",
             Value::PhoneNumber(_) => "PhoneNumber",

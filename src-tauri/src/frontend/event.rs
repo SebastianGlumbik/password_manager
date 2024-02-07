@@ -5,15 +5,36 @@ use tauri::MenuEvent;
 pub fn menu_event(event: MenuEvent, app_handle: AppHandle, window: Window) {
     let thread_builder = std::thread::Builder::new();
     let window_clone = window.clone();
-    let thread = thread_builder.spawn(move || {
-        // TODO: handle all menu events
-        match event.menu_item_id() {
-            "Start Over" => block_on(start_over(app_handle, window_clone)),
-            "Choose database" => block_on(choose_database(app_handle, window_clone)),
-            "Log out" => block_on(logout(app_handle.clone().state(), app_handle, window_clone))
-                .unwrap_or_default(),
-            _ => (),
-        }
+    let thread = thread_builder.spawn(move || match event.menu_item_id() {
+        "Start Over" => block_on(start_over(app_handle, window_clone)),
+        "Choose database" => block_on(choose_database(app_handle, window_clone)),
+        "Log out" => block_on(logout(app_handle.clone().state(), app_handle, window_clone))
+            .unwrap_or_default(),
+        "New Login" => window_clone
+            .emit_all(
+                "new_record",
+                Record::new("".to_string(), "".to_string(), Category::Login),
+            )
+            .unwrap(),
+        "New Bank Card" => window_clone
+            .emit(
+                "new_record",
+                Record::new("".to_string(), "".to_string(), Category::BankCard),
+            )
+            .unwrap(),
+        "New Note" => window_clone
+            .emit(
+                "new_record",
+                Record::new("".to_string(), "".to_string(), Category::Note),
+            )
+            .unwrap(),
+        "New Other" => window_clone
+            .emit(
+                "new_record",
+                Record::new("".to_string(), "".to_string(), Category::Other),
+            )
+            .unwrap(),
+        _ => println!("Unknown menu item: {}", event.menu_item_id()),
     });
 
     if thread.is_err() {

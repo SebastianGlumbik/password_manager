@@ -7,25 +7,22 @@ use tauri::{CustomMenuItem, Menu, MenuEntry, MenuItem, Submenu};
 #[cfg(target_os = "macos")]
 pub fn menu_os_default_non_resizable(package_name: &str) -> Menu {
     let mut menu = Menu::os_default(package_name);
-    menu.items
-        .iter_mut()
-        .find_map(|item| {
-            if let MenuEntry::Submenu(submenu) = item {
-                if submenu.title == "Window" {
-                    return Some(submenu);
-                }
+    if let Some(submenu) = menu.items.iter_mut().find_map(|item| {
+        if let MenuEntry::Submenu(submenu) = item {
+            if submenu.title == "Window" {
+                return Some(submenu);
             }
+        }
 
-            None
-        })
-        .map(|submenu| {
-            submenu
-                .inner
-                .items
-                .iter()
-                .position(|item| matches!(item, MenuEntry::NativeItem(MenuItem::Zoom)))
-                .map(|index| submenu.inner.items.remove(index));
-        });
+        None
+    }) {
+        submenu
+            .inner
+            .items
+            .iter()
+            .position(|item| matches!(item, MenuEntry::NativeItem(MenuItem::Zoom)))
+            .map(|index| submenu.inner.items.remove(index));
+    }
 
     menu.items
         .iter()
@@ -113,10 +110,13 @@ pub fn create_main_menu(package_name: &str) -> Menu {
         .add_submenu(Submenu::new(
             "New".to_string(),
             Menu::new()
-                .add_item(CustomMenuItem::new("Login".to_string(), "Login"))
-                .add_item(CustomMenuItem::new("Bank Card".to_string(), "Bank Card"))
-                .add_item(CustomMenuItem::new("Note".to_string(), "Note"))
-                .add_item(CustomMenuItem::new("Custom".to_string(), "Custom")),
+                .add_item(CustomMenuItem::new("New Login".to_string(), "Login"))
+                .add_item(CustomMenuItem::new(
+                    "New Bank Card".to_string(),
+                    "Bank Card",
+                ))
+                .add_item(CustomMenuItem::new("New Note".to_string(), "Note"))
+                .add_item(CustomMenuItem::new("New Other".to_string(), "Other")),
         ))
         .add_native_item(MenuItem::Separator)
         .add_submenu(Submenu::new(
@@ -133,39 +133,33 @@ pub fn create_main_menu(package_name: &str) -> Menu {
     #[cfg(target_os = "macos")]
     {
         menu = Menu::os_default(package_name);
-        menu.items
-            .iter_mut()
-            .find_map(|item| {
-                if let MenuEntry::Submenu(submenu) = item {
-                    if submenu.title == "File" {
-                        return Some(submenu);
-                    }
+        if let Some(submenu) = menu.items.iter_mut().find_map(|item| {
+            if let MenuEntry::Submenu(submenu) = item {
+                if submenu.title == "File" {
+                    return Some(submenu);
                 }
+            }
 
-                None
-            })
-            .map(|submenu| {
-                submenu.inner = file_menu;
-            });
+            None
+        }) {
+            submenu.inner = file_menu;
+        }
 
-        menu.items
-            .iter_mut()
-            .find_map(|item| {
-                if let MenuEntry::Submenu(submenu) = item {
-                    if submenu.title == package_name {
-                        return Some(submenu);
-                    }
+        if let Some(submenu) = menu.items.iter_mut().find_map(|item| {
+            if let MenuEntry::Submenu(submenu) = item {
+                if submenu.title == package_name {
+                    return Some(submenu);
                 }
+            }
 
-                None
-            })
-            .map(|submenu| {
-                submenu.inner = submenu
-                    .inner
-                    .clone()
-                    .add_native_item(MenuItem::Separator)
-                    .add_item(CustomMenuItem::new("Log out".to_string(), "Log out"));
-            });
+            None
+        }) {
+            submenu.inner = submenu
+                .inner
+                .clone()
+                .add_native_item(MenuItem::Separator)
+                .add_item(CustomMenuItem::new("Log out".to_string(), "Log out"));
+        }
     }
 
     #[cfg(target_os = "linux")]

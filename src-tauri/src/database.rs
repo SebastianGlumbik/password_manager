@@ -70,14 +70,14 @@ impl Database {
         let sql = SecretString::new(
             "SELECT id_record, title, subtitle, created, last_modified, category FROM Record WHERE id_record = ?1;".to_string());
         let mut stmt = self.connection.prepare(sql.expose_secret())?;
-        stmt.query_row(params![id_record], |row| convert::row_to_record(row))
+        stmt.query_row(params![id_record], convert::row_to_record)
     }
 
     pub fn get_content(&self, id_content: u64) -> Result<Content> {
         let sql = SecretString::new(
             "SELECT id_content, label, position, required, kind, value FROM Content WHERE id_content = ?1;".to_string());
         let mut stmt = self.connection.prepare(sql.expose_secret())?;
-        stmt.query_row(params![id_content], |row| convert::row_to_content(row))
+        stmt.query_row(params![id_content], convert::row_to_content)
     }
     pub fn get_all_records(&self) -> Result<Vec<Record>> {
         let sql = SecretString::new(
@@ -85,14 +85,14 @@ impl Database {
                 .to_string(),
         );
         let mut stmt = self.connection.prepare(sql.expose_secret())?;
-        let items_iter = stmt.query_map([], |row| convert::row_to_record(row))?;
+        let items_iter = stmt.query_map([], convert::row_to_record)?;
         items_iter.collect()
     }
 
     pub fn get_all_content_for_record(&self, id_record: u64) -> Result<Vec<Content>> {
         let sql = SecretString::new("SELECT id_content, label, position, required, kind, value FROM Content WHERE id_record = ?1;".to_string());
         let mut stmt = self.connection.prepare(sql.expose_secret())?;
-        let items_iter = stmt.query_map([id_record], |row| convert::row_to_content(row))?;
+        let items_iter = stmt.query_map([id_record], convert::row_to_content)?;
         items_iter.collect()
     }
     pub fn save_record(&self, record: &mut Record) -> Result<()> {

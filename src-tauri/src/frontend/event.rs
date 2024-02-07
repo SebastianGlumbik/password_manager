@@ -51,7 +51,7 @@ pub fn menu_event(event: MenuEvent, app_handle: AppHandle, window: Window) {
     });
 
     if thread.is_err() {
-        tauri::api::dialog::blocking::message(Some(&window), "Error", "Failed to create thread");
+        tauri::api::dialog::message(Some(&window), "Error", "Unexpected error");
     }
 }
 

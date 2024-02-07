@@ -6,98 +6,56 @@ use zeroize::Zeroize;
 /// # Error
 /// Returns an error if the value cannot be converted to a Number.
 fn number_from_database(value: String) -> Result<Number, Error> {
-    match Number::new(value) {
-        Ok(number) => Ok(number),
-        Err(e) => Err(Error::InvalidColumnType(
-            4,
-            e.to_string(),
-            rusqlite::types::Type::Text,
-        )),
-    }
+    Number::new(value)
+        .map_err(|e| Error::InvalidColumnType(4, e.to_string(), rusqlite::types::Type::Text))
 }
 
 /// Helper function to convert a date from the database to a Date struct.
 /// # Error
 /// Returns an error if the value cannot be converted to a Date.
 fn date_from_database(value: String) -> Result<Date, Error> {
-    match Date::new(value) {
-        Ok(date) => Ok(date),
-        Err(e) => Err(Error::InvalidColumnType(
-            4,
-            e.to_string(),
-            rusqlite::types::Type::Text,
-        )),
-    }
+    Date::new(value)
+        .map_err(|e| Error::InvalidColumnType(4, e.to_string(), rusqlite::types::Type::Text))
 }
 
 /// Helper function to convert a TOTP secret from the database to a TOTPSecret struct.
 /// # Error
 /// Returns an error if the value cannot be converted to a TOTPSecret.
 fn totp_from_database(value: String) -> Result<TOTPSecret, Error> {
-    match TOTPSecret::new(value) {
-        Ok(totp) => Ok(totp),
-        Err(e) => Err(Error::InvalidColumnType(
-            4,
-            e.to_string(),
-            rusqlite::types::Type::Text,
-        )),
-    }
+    TOTPSecret::new(value)
+        .map_err(|e| Error::InvalidColumnType(4, e.to_string(), rusqlite::types::Type::Text))
 }
 
 /// Helper function to convert an url from the database to an Url struct.
 /// # Error
 /// Returns an error if the value cannot be converted to an Url.
 fn url_from_database(value: String) -> Result<Url, Error> {
-    match Url::new(value) {
-        Ok(url) => Ok(url),
-        Err(e) => Err(Error::InvalidColumnType(
-            4,
-            e.to_string(),
-            rusqlite::types::Type::Text,
-        )),
-    }
+    Url::new(value)
+        .map_err(|e| Error::InvalidColumnType(4, e.to_string(), rusqlite::types::Type::Text))
 }
 
 /// Helper function to convert an email from the database to an Email struct.
 /// # Error
 /// Returns an error if the value cannot be converted to an Email.
 fn email_from_database(value: String) -> Result<Email, Error> {
-    match Email::new(value) {
-        Ok(email) => Ok(email),
-        Err(e) => Err(Error::InvalidColumnType(
-            4,
-            e.to_string(),
-            rusqlite::types::Type::Text,
-        )),
-    }
+    Email::new(value)
+        .map_err(|e| Error::InvalidColumnType(4, e.to_string(), rusqlite::types::Type::Text))
 }
 
 /// Helper function to convert a phone number from the database to a PhoneNumber struct.
 /// # Error
 /// Returns an error if the value cannot be converted to a PhoneNumber.
 fn phone_number_from_database(value: String) -> Result<PhoneNumber, Error> {
-    match PhoneNumber::new(value) {
-        Ok(phone_number) => Ok(phone_number),
-        Err(e) => Err(Error::InvalidColumnType(
-            4,
-            e.to_string(),
-            rusqlite::types::Type::Text,
-        )),
-    }
+    PhoneNumber::new(value)
+        .map_err(|e| Error::InvalidColumnType(4, e.to_string(), rusqlite::types::Type::Text))
 }
 
 /// Helper function to convert a bank card number from the database to a BankCardNumber struct.
 /// # Error
 /// Returns an error if the value cannot be converted to a BankCardNumber.
 fn bank_card_number_from_database(value: String) -> Result<BankCardNumber, Error> {
-    match BankCardNumber::new(value) {
-        Ok(bank_card_number) => Ok(bank_card_number),
-        Err(e) => Err(Error::InvalidColumnType(
-            4,
-            e.to_string(),
-            rusqlite::types::Type::Text,
-        )),
-    }
+    BankCardNumber::new(value)
+        .map_err(|e| Error::InvalidColumnType(4, e.to_string(), rusqlite::types::Type::Text))
 }
 
 /// Helper function to convert a record from the database to a Record struct.

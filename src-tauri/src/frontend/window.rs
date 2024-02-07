@@ -83,7 +83,7 @@ pub fn create_main_window(app_handle: AppHandle) -> tauri::Result<()> {
     .title(app_handle.package_info().name.as_str())
     .disable_file_drop_handler()
     .resizable(true)
-    .min_inner_size(640f64, 480f64)
+    .min_inner_size(720f64, 350f64)
     .menu(create_main_menu(app_handle.package_info().name.as_str()));
 
     #[cfg(target_os = "macos")]

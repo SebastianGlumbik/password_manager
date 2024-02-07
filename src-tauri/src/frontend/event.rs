@@ -1,5 +1,18 @@
 use super::*;
+use crate::database::model::{Category, Record};
 use tauri::MenuEvent;
+
+/// Shows a critical error message and restarts the application.
+///
+/// **NOTE:** Has blocking dialog [`tauri::api::dialog::blocking`].
+pub fn critical_error(message: &str, app_handle: AppHandle, window: Window) {
+    tauri::api::dialog::blocking::message(
+        Some(&window),
+        "Critical Error",
+        format!("{}\nApplication will now restart", message),
+    );
+    app_handle.restart();
+}
 
 /// Handles all menu events.
 pub fn menu_event(event: MenuEvent, app_handle: AppHandle, window: Window) {

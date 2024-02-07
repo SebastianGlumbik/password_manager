@@ -1,12 +1,12 @@
+mod convert;
 pub mod model;
 use model::*;
-mod convert;
-
 use rusqlite::{params, Connection, Result};
 use secrecy::{ExposeSecret, SecretString};
+use std::sync::Mutex;
 
 pub struct Database {
-    connection: Connection,
+    connection: Mutex<Connection>,
 }
 
 impl Database {
@@ -56,46 +56,82 @@ impl Database {
             .execute_batch(sql.expose_secret())
             .map_err(|_| "Failed to create database")?;
 
-        Ok(Database { connection })
+        Ok(Database {
+            connection: Mutex::new(connection),
+        })
     }
 
     pub fn change_key(&mut self, new_password: &str) -> Result<(), &'static str> {
         let sql = SecretString::new(format!("PRAGMA rekey = '{new_password}';"));
         self.connection
+            .lock()
+            .map_err(|_| "Failed to access database lock")?
             .execute_batch(sql.expose_secret())
             .map_err(|_| "Failed to set a new key")
     }
 
-    pub fn get_record(&self, id_record: u64) -> Result<Record> {
+    pub fn get_record(&self, id_record: u64) -> Result<Record, &'static str> {
         let sql = SecretString::new(
             "SELECT id_record, title, subtitle, created, last_modified, category FROM Record WHERE id_record = ?1;".to_string());
-        let mut stmt = self.connection.prepare(sql.expose_secret())?;
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| "Failed to access database lock")?;
+        let mut stmt = connection
+            .prepare(sql.expose_secret())
+            .map_err(|_| "Failed to prepare statement")?;
         stmt.query_row(params![id_record], convert::row_to_record)
+            .map_err(|_| "Failed to get record")
     }
 
-    pub fn get_content(&self, id_content: u64) -> Result<Content> {
+    pub fn get_content(&self, id_content: u64) -> Result<Content, &'static str> {
         let sql = SecretString::new(
             "SELECT id_content, label, position, required, kind, value FROM Content WHERE id_content = ?1;".to_string());
-        let mut stmt = self.connection.prepare(sql.expose_secret())?;
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| "Failed to access database lock")?;
+        let mut stmt = connection
+            .prepare(sql.expose_secret())
+            .map_err(|_| "Failed to prepare statement")?;
         stmt.query_row(params![id_content], convert::row_to_content)
+            .map_err(|_| "Failed to get content")
     }
-    pub fn get_all_records(&self) -> Result<Vec<Record>> {
+    pub fn get_all_records(&self) -> Result<Vec<Record>, &'static str> {
         let sql = SecretString::new(
             "SELECT id_record, title, subtitle, created, last_modified, category FROM Record;"
                 .to_string(),
         );
-        let mut stmt = self.connection.prepare(sql.expose_secret())?;
-        let items_iter = stmt.query_map([], convert::row_to_record)?;
-        items_iter.collect()
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| "Failed to access database lock")?;
+        let mut stmt = connection
+            .prepare(sql.expose_secret())
+            .map_err(|_| "Failed to prepare statement")?;
+        let result: Result<Vec<Record>> = stmt
+            .query_map([], convert::row_to_record)
+            .map_err(|_| "Failed to map records")?
+            .collect();
+        result.map_err(|_| "Failed to get records")
     }
 
-    pub fn get_all_content_for_record(&self, id_record: u64) -> Result<Vec<Content>> {
+    pub fn get_all_content_for_record(&self, id_record: u64) -> Result<Vec<Content>, &'static str> {
         let sql = SecretString::new("SELECT id_content, label, position, required, kind, value FROM Content WHERE id_record = ?1;".to_string());
-        let mut stmt = self.connection.prepare(sql.expose_secret())?;
-        let items_iter = stmt.query_map([id_record], convert::row_to_content)?;
-        items_iter.collect()
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| "Failed to access database lock")?;
+        let mut stmt = connection
+            .prepare(sql.expose_secret())
+            .map_err(|_| "Failed to prepare statement")?;
+        let result: Result<Vec<Content>> = stmt
+            .query_map([id_record], convert::row_to_content)
+            .map_err(|_| "Failed to map content")?
+            .collect();
+        result.map_err(|_| "Failed to get content")
     }
-    pub fn save_record(&self, record: &mut Record) -> Result<()> {
+    pub fn save_record(&self, record: &mut Record) -> Result<(), &'static str> {
         record.set_last_modified(chrono::Local::now());
         let title = record.title();
         let subtitle = record.subtitle();
@@ -112,13 +148,19 @@ impl Database {
         } else {
             "UPDATE Record SET title = ?1, subtitle = ?2, created = ?3, last_modified = ?4, category = ?5 WHERE id_record = ?6;"
         };
-        self.connection.execute(sql, &*params)?;
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| "Failed to access database lock")?;
+        connection
+            .execute(sql, &*params)
+            .map_err(|_| "Failed to save record")?;
         if id_record == 0 {
-            record.set_id(self.connection.last_insert_rowid() as u64);
+            record.set_id(connection.last_insert_rowid() as u64);
         }
         Ok(())
     }
-    pub fn save_content(&self, id_record: u64, content: &mut Content) -> Result<()> {
+    pub fn save_content(&self, id_record: u64, content: &mut Content) -> Result<(), &'static str> {
         let label = content.label();
         let position = content.position();
         let required = content.required();
@@ -134,26 +176,54 @@ impl Database {
             params.append(&mut params![id_content].to_vec());
             "UPDATE Content SET label = ?1, position = ?2, required = ?3, kind = ?4, value = ?5 WHERE id_content = ?6;"
         };
-        self.connection.execute(sql, &*params)?;
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| "Failed to access database lock")?;
+        connection
+            .execute(sql, &*params)
+            .map_err(|_| "Failed to save content")?;
         if id_content == 0 {
-            content.set_id(self.connection.last_insert_rowid() as u64);
+            content.set_id(connection.last_insert_rowid() as u64);
         }
         Ok(())
     }
-    pub fn delete_record(&mut self, record: Record) -> Result<()> {
-        let transaction = self.connection.transaction()?;
+    pub fn delete_record(&self, record: Record) -> Result<(), &'static str> {
+        let mut connection = self
+            .connection
+            .lock()
+            .map_err(|_| "Failed to access database lock")?;
+        let transaction = connection
+            .transaction()
+            .map_err(|_| "Failed to start transaction")?;
         let sql = SecretString::new("DELETE FROM Content WHERE id_record = ?1;".to_string());
-        transaction.execute(sql.expose_secret(), params![record.id()])?;
+        transaction
+            .execute(sql.expose_secret(), params![record.id()])
+            .map_err(|_| "Failed to delete records content")?;
         let sql = SecretString::new("DELETE FROM Record WHERE id_record = ?1;".to_string());
-        transaction.execute(sql.expose_secret(), params![record.id()])?;
-        transaction.commit()
+        transaction
+            .execute(sql.expose_secret(), params![record.id()])
+            .map_err(|_| "Failed to delete record")?;
+        transaction
+            .commit()
+            .map_err(|_| "Failed to commit transaction")
     }
 
-    pub fn delete_content(&mut self, content: Content) -> Result<()> {
-        let transaction = self.connection.transaction()?;
+    pub fn delete_content(&self, content: Content) -> Result<(), &'static str> {
+        let mut connection = self
+            .connection
+            .lock()
+            .map_err(|_| "Failed to access database lock")?;
+        let transaction = connection
+            .transaction()
+            .map_err(|_| "Failed to start transaction")?;
         let sql = SecretString::new("DELETE FROM Content WHERE id_content = ?1;".to_string());
-        transaction.execute(sql.expose_secret(), params![content.id()])?;
-        transaction.commit()
+        transaction
+            .execute(sql.expose_secret(), params![content.id()])
+            .map_err(|_| "Failed to delete content")?;
+        transaction
+            .commit()
+            .map_err(|_| "Failed to commit transaction")
     }
 }
 

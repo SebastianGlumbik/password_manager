@@ -21,8 +21,6 @@ pub fn menu_event(event: MenuEvent, app_handle: AppHandle, window: Window) {
     let thread = thread_builder.spawn(move || match event.menu_item_id() {
         "Start Over" => block_on(start_over(app_handle, window_clone)),
         "Choose database" => block_on(choose_database(app_handle, window_clone)),
-        "Log out" => block_on(logout(app_handle.clone().state(), app_handle, window_clone))
-            .unwrap_or_default(),
         "New Login" => window_clone
             .emit_all(
                 "new_record",
@@ -60,7 +58,7 @@ pub fn menu_event(event: MenuEvent, app_handle: AppHandle, window: Window) {
 /// - Has a confirmation dialog before deleting the database file
 /// - Has a message dialog if the database file could not be deleted
 pub async fn start_over(app_handle: AppHandle, window: Window) {
-    if let Some(path_buf) = DatabaseConnection::database_path(app_handle.clone()) {
+    if let Some(path_buf) = database_path(app_handle.clone()) {
         if tauri::api::dialog::blocking::ask(
             Some(&window),
             "Starting over",
@@ -91,7 +89,7 @@ pub async fn start_over(app_handle: AppHandle, window: Window) {
 /// - If the database file already exists, has a confirmation dialog before overwriting the database file
 /// - Has a message dialog if the database file could not be copied
 pub async fn choose_database(app_handle: AppHandle, window: Window) {
-    if let Some(old_database) = DatabaseConnection::database_path(app_handle.clone()) {
+    if let Some(old_database) = database_path(app_handle.clone()) {
         if !old_database.exists() || tauri::api::dialog::blocking::ask(
             Some(&window),
             "Set database",
@@ -112,26 +110,4 @@ pub async fn choose_database(app_handle: AppHandle, window: Window) {
             }
         }
     }
-}
-
-/// Disconnects from the database, creates login window and closes main window.
-pub async fn logout<'a>(
-    connection: State<'a, DatabaseConnection>,
-    app_handle: AppHandle,
-    window: Window,
-) -> Result<(), &'static str> {
-    connection.disconnect()?;
-
-    #[cfg(target_os = "macos")]
-    app_handle
-        .save_window_state(StateFlags::all())
-        .unwrap_or_default();
-
-    initialize_window(connection, app_handle)
-        .await
-        .map_err(|_| "Failed to create login window")?;
-
-    window.close().map_err(|_| "Failed to close window")?;
-
-    Ok(())
 }

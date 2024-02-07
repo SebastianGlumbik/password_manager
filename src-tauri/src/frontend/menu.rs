@@ -144,22 +144,6 @@ pub fn create_main_menu(package_name: &str) -> Menu {
         }) {
             submenu.inner = file_menu;
         }
-
-        if let Some(submenu) = menu.items.iter_mut().find_map(|item| {
-            if let MenuEntry::Submenu(submenu) = item {
-                if submenu.title == package_name {
-                    return Some(submenu);
-                }
-            }
-
-            None
-        }) {
-            submenu.inner = submenu
-                .inner
-                .clone()
-                .add_native_item(MenuItem::Separator)
-                .add_item(CustomMenuItem::new("Log out".to_string(), "Log out"));
-        }
     }
 
     #[cfg(target_os = "linux")]

@@ -2,7 +2,6 @@ use super::*;
 use crate::database::model::{value, Category, Content, Record, ToSecretString, Value};
 use serde::{Serialize, Serializer};
 use zeroize::Zeroize;
-use zeroize::__internal::AssertZeroize;
 
 /// Window types that can be created.
 #[derive(Clone, serde::Serialize)]
@@ -16,14 +15,11 @@ pub enum WindowType {
 /// # Error
 /// Returns an error if the window cannot be created.
 #[tauri::command]
-pub async fn initialize_window<'a>(
-    connection: State<'a, DatabaseConnection>,
-    app_handle: AppHandle,
-) -> tauri::Result<WindowType> {
-    if connection.is_connected() {
+pub async fn initialize_window<'a>(app_handle: AppHandle) -> tauri::Result<WindowType> {
+    if app_handle.try_state::<Database>().is_some() {
         create_main_window(app_handle)?;
         Ok(WindowType::Main)
-    } else if DatabaseConnection::database_exists(app_handle.clone()) {
+    } else if database_exists(app_handle.clone()) {
         create_login_window(app_handle)?;
         Ok(WindowType::Login)
     } else {
@@ -32,33 +28,32 @@ pub async fn initialize_window<'a>(
     }
 }
 
-/// Checks if the database exists, connects to it, opens main window and closes login window.
+/// Login process. Database must exist. Adds the database to the app state, initializes the main window and closes the current window.
 /// # Error
-/// - Connection to the database fails
-/// - The new window cannot be created
-/// - The current window cannot be closed
+/// Reason why the login failed.
 /// # Restart
 /// Restarts the application if the database does not exist. Error is shown in a blocking dialog.
 #[tauri::command]
 pub async fn login<'a>(
     password: SecretString,
-    connection: State<'a, DatabaseConnection>,
     app_handle: AppHandle,
     window: Window,
 ) -> Result<(), &'static str> {
-    if DatabaseConnection::database_exists(app_handle.clone()).not() {
+    if database_exists(app_handle.clone()).not() {
         critical_error("Database does not exist", app_handle, window);
         return Err("Database does not exist");
     }
 
-    connection.connect(password, app_handle.clone())?;
+    let path = database_path(app_handle.clone()).ok_or("Failed to get database path")?;
+    let path = path.to_str().ok_or("Path is not valid UTF-8")?;
+    app_handle.manage(Database::open(path, password.expose_secret())?);
 
     #[cfg(target_os = "macos")]
     app_handle
         .save_window_state(StateFlags::all())
         .unwrap_or_default();
 
-    initialize_window(connection, app_handle)
+    initialize_window(app_handle)
         .await
         .map_err(|_| "Failed to initialize window")?;
 
@@ -69,23 +64,19 @@ pub async fn login<'a>(
     Ok(())
 }
 
-/// Checks if database does not exist, compares passwords, connects to database, creates main window and closes register window.
+/// Register process. Database must not exist. Adds the database to the app state, initializes the main window and closes the current window.
 /// # Error
-/// - Passwords do not match
-/// - Connection to the database fails
-/// - The new window cannot be created
-/// - The current window cannot be closed
+/// Reason why the registration failed.
 /// # Restart
 /// Restarts the application if the database already exists. Error is shown in a blocking dialog.
 #[tauri::command(rename_all = "snake_case")]
 pub async fn register<'a>(
     password: SecretString,
     confirm_password: SecretString,
-    connection: State<'a, DatabaseConnection>,
     app_handle: AppHandle,
     window: Window,
 ) -> Result<(), &'static str> {
-    if DatabaseConnection::database_exists(app_handle.clone()) {
+    if database_exists(app_handle.clone()) {
         critical_error("Database already exists", app_handle, window);
         return Err("Database already exists");
     }
@@ -94,14 +85,20 @@ pub async fn register<'a>(
         return Err("Passwords do not match.");
     }
 
-    connection.connect(password, app_handle.clone())?;
+    let path = database_path(app_handle.clone()).ok_or("Failed to get database path")?;
+    if path.exists().not() {
+        fs::create_dir_all(path.parent().ok_or("Failed to get data directory path")?)
+            .map_err(|_| "Failed to create data directory")?;
+    }
+    let path = path.to_str().ok_or("Path is not valid UTF-8")?;
+    app_handle.manage(Database::open(path, password.expose_secret())?);
 
     #[cfg(target_os = "macos")]
     app_handle
         .save_window_state(StateFlags::all())
         .unwrap_or_default();
 
-    initialize_window(connection, app_handle)
+    initialize_window(app_handle)
         .await
         .map_err(|_| "Failed to initialize window")?;
 
@@ -117,22 +114,10 @@ pub async fn register<'a>(
 /// Restarts the application if any error occurs. Errors are shown in blocking dialogs.
 #[tauri::command]
 pub async fn get_all_records<'a>(
-    connection: State<'a, DatabaseConnection>,
+    database: State<'a, Database>,
     app_handle: AppHandle,
     window: Window,
 ) -> Result<Vec<Record>, ()> {
-    let Ok(guard) = connection.database.lock() else {
-        return Err(critical_error("Database lock poisoned", app_handle, window));
-    };
-
-    let Some(database) = guard.as_ref() else {
-        return Err(critical_error(
-            "Database does not exist",
-            app_handle,
-            window,
-        ));
-    };
-
     database
         .get_all_records()
         .map_err(|_| critical_error("Failed to load records", app_handle, window))
@@ -144,29 +129,19 @@ pub async fn get_all_records<'a>(
 
 #[tauri::command]
 pub async fn get_compromised_records<'a>(
-    connection: State<'a, DatabaseConnection>,
+    database: State<'a, Database>,
     app_handle: AppHandle,
     window: Window,
 ) -> Result<Vec<u64>, ()> {
-    let records = get_all_records(connection.clone(), app_handle.clone(), window.clone()).await?;
+    let records = get_all_records(database.clone(), app_handle.clone(), window.clone()).await?;
     let mut result: Vec<u64> = Vec::with_capacity(records.len());
 
     for record in records {
-        let all_content = {
-            let Ok(guard) = connection.database.lock() else {
-                return Err(critical_error("Database lock poisoned", app_handle, window));
-            };
-
-            let Some(database) = guard.as_ref() else {
-                return Err(critical_error("Database is not opened", app_handle, window));
-            };
-
-            let Ok(content) = database.get_all_content_for_record(record.id()) else {
-                return Err(critical_error("Failed to load content", app_handle, window));
-            };
-
-            content
-        };
+        let all_content = database
+            .get_all_content_for_record(record.id())
+            .map_err(|_| {
+                critical_error("Failed to load content", app_handle.clone(), window.clone())
+            })?;
 
         for content in all_content {
             if let Value::Password(password) = content.value() {
@@ -191,7 +166,7 @@ pub async fn get_compromised_records<'a>(
 #[tauri::command]
 pub async fn get_all_content_for_record<'a>(
     record: Record,
-    connection: State<'a, DatabaseConnection>,
+    database: State<'a, Database>,
     totp_manager: State<'a, TOTPManager>,
     app_handle: AppHandle,
     window: Window,
@@ -257,17 +232,11 @@ pub async fn get_all_content_for_record<'a>(
         }
         Ok(content)
     } else {
-        let Ok(guard) = connection.database.lock() else {
-            return Err(critical_error("Database lock poisoned", app_handle, window));
-        };
-
-        let Some(database) = guard.as_ref() else {
-            return Err(critical_error("Database is not opened", app_handle, window));
-        };
-
-        let Ok(content) = database.get_all_content_for_record(record.id()) else {
-            return Err(critical_error("Failed to load content", app_handle, window));
-        };
+        let content = database
+            .get_all_content_for_record(record.id())
+            .map_err(|_| {
+                critical_error("Failed to load content", app_handle.clone(), window.clone())
+            })?;
 
         content.iter().for_each(|content| {
             if let Value::TOTPSecret(totp_secret) = content.value() {
@@ -301,20 +270,8 @@ impl Serialize for ContentValue {
 #[tauri::command]
 pub async fn get_content_value<'a>(
     id: u64,
-    connection: State<'a, DatabaseConnection>,
-    app_handle: AppHandle,
-    window: Window,
+    database: State<'a, Database>,
 ) -> Result<ContentValue, &'static str> {
-    let Ok(guard) = connection.database.lock() else {
-        critical_error("Database lock poisoned", app_handle, window);
-        return Err("Database lock poisoned");
-    };
-
-    let Some(database) = guard.as_ref() else {
-        critical_error("Database is not opened", app_handle, window);
-        return Err("Database is not opened");
-    };
-
     database
         .get_content(id)
         .map(|content| ContentValue(content.value().to_secret_string()))
@@ -332,21 +289,9 @@ pub async fn get_content_value<'a>(
 pub async fn save_record<'a>(
     mut record: Record,
     content: Vec<Content>,
-    connection: State<'a, DatabaseConnection>,
+    database: State<'a, Database>,
     totp_manager: State<'a, TOTPManager>,
-    app_handle: AppHandle,
-    window: Window,
 ) -> Result<Record, &'static str> {
-    let Ok(guard) = connection.database.lock() else {
-        critical_error("Database lock poisoned", app_handle, window);
-        return Err("Database lock poisoned");
-    };
-
-    let Some(database) = guard.as_ref() else {
-        critical_error("Database is not opened", app_handle, window);
-        return Err("Database is not opened");
-    };
-
     database
         .save_record(&mut record)
         .map_err(|_| "Failed to save record")?;
@@ -372,20 +317,8 @@ pub async fn save_record<'a>(
 #[tauri::command]
 pub async fn delete_record<'a>(
     record: Record,
-    connection: State<'a, DatabaseConnection>,
-    app_handle: AppHandle,
-    window: Window,
+    database: State<'a, Database>,
 ) -> Result<(), &'static str> {
-    let Ok(mut guard) = connection.database.lock() else {
-        critical_error("Database lock poisoned", app_handle, window);
-        return Err("Database lock poisoned");
-    };
-
-    let Some(database) = guard.as_mut() else {
-        critical_error("Database is not opened", app_handle, window);
-        return Err("Database is not opened");
-    };
-
     database
         .delete_record(record)
         .map_err(|_| "Failed to delete record")
@@ -399,20 +332,8 @@ pub async fn delete_record<'a>(
 #[tauri::command]
 pub async fn delete_content<'a>(
     content: Content,
-    connection: State<'a, DatabaseConnection>,
-    app_handle: AppHandle,
-    window: Window,
+    database: State<'a, Database>,
 ) -> Result<(), &'static str> {
-    let Ok(mut guard) = connection.database.lock() else {
-        critical_error("Database lock poisoned", app_handle, window);
-        return Err("Database lock poisoned");
-    };
-
-    let Some(database) = guard.as_mut() else {
-        critical_error("Database is not opened", app_handle, window);
-        return Err("Database is not opened");
-    };
-
     database
         .delete_content(content)
         .map_err(|_| "Failed to delete content")
@@ -426,21 +347,9 @@ pub async fn delete_content<'a>(
 #[tauri::command]
 pub async fn copy_value_to_clipboard<'a>(
     id: u64,
-    connection: State<'a, DatabaseConnection>,
+    database: State<'a, Database>,
     totp_manager: State<'a, TOTPManager>,
-    app_handle: AppHandle,
-    window: Window,
 ) -> Result<(), &'static str> {
-    let Ok(guard) = connection.database.lock() else {
-        critical_error("Database lock poisoned", app_handle, window);
-        return Err("Database lock poisoned");
-    };
-
-    let Some(database) = guard.as_ref() else {
-        critical_error("Database is not opened", app_handle, window);
-        return Err("Database is not opened");
-    };
-
     let content = database
         .get_content(id)
         .map_err(|_| "Failed to load content")?;
@@ -584,31 +493,17 @@ pub enum PasswordProblem {
 #[tauri::command]
 pub async fn check_password<'a>(
     id: u64,
-    connection: State<'a, DatabaseConnection>,
-    app_handle: AppHandle,
-    window: Window,
+    database: State<'a, Database>,
 ) -> Result<PasswordProblem, &'static str> {
-    let password = {
-        let Ok(guard) = connection.database.lock() else {
-            critical_error("Database lock poisoned", app_handle, window);
-            return Err("Database lock poisoned");
-        };
+    let content = database
+        .get_content(id)
+        .map_err(|_| "Failed to load content")?;
 
-        let Some(database) = guard.as_ref() else {
-            critical_error("Database is not opened", app_handle, window);
-            return Err("Database is not opened");
-        };
-
-        let content = database
-            .get_content(id)
-            .map_err(|_| "Failed to load content")?;
-
-        let Value::Password(password) = content.value() else {
-            return Err("Content is not a password");
-        };
-
-        password.to_secret_string()
+    let Value::Password(password) = content.value() else {
+        return Err("Content is not a password");
     };
+
+    let password = password.to_secret_string();
 
     if passwords::analyzer::is_common_password(password.expose_secret()) {
         Ok(PasswordProblem::Common)
@@ -634,23 +529,8 @@ pub async fn password_strength(password: SecretString) -> f64 {
 /// # Restart
 /// Restarts the application if the database cannot be accessed. Error is shown in a blocking dialog.
 #[tauri::command]
-pub async fn card_type<'a>(
-    id: u64,
-    connection: State<'a, DatabaseConnection>,
-    app_handle: AppHandle,
-    window: Window,
-) -> Result<String, &'static str> {
+pub async fn card_type<'a>(id: u64, database: State<'a, Database>) -> Result<String, &'static str> {
     let card_number = {
-        let Ok(guard) = connection.database.lock() else {
-            critical_error("Database lock poisoned", app_handle, window);
-            return Err("Database lock poisoned");
-        };
-
-        let Some(database) = guard.as_ref() else {
-            critical_error("Database is not opened", app_handle, window);
-            return Err("Database is not opened");
-        };
-
         let content = database
             .get_content(id)
             .map_err(|_| "Failed to load content")?;

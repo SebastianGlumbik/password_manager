@@ -28,7 +28,6 @@ pub fn run() -> anyhow::Result<()> {
             app.emit_all("single-instance", Payload { args: argv, cwd })
                 .unwrap_or_default();
         }))
-        .manage(DatabaseConnection::default())
         .manage(TOTPManager::default())
         .invoke_handler(tauri::generate_handler![
             initialize_window,
@@ -55,7 +54,7 @@ pub fn run() -> anyhow::Result<()> {
 
     let app = app_builder.build(tauri::generate_context!())?;
 
-    block_on(initialize_window(app.state(), app.app_handle()))?;
+    block_on(initialize_window(app.app_handle()))?;
 
     app.run(|_app_handle, _event| {
         // Can react to events

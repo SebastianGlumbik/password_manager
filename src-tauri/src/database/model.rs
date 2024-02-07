@@ -1,56 +1,46 @@
-pub mod value;
-
+use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
-pub use value::*;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
+pub mod value;
+pub use value::*;
+
 /// Record category
-/// ## serde
-/// Serialize and Deserialize as string
-#[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop)]
+#[derive(Debug, PartialEq, Clone, Zeroize, ZeroizeOnDrop, Serialize, Deserialize)]
 pub enum Category {
     Login,
+    #[serde(rename(serialize = "Bank Card"))]
+    #[serde(alias = "Bank Card")]
     BankCard,
     Note,
-    Custom(String),
+    #[serde(other)]
+    Other,
 }
 
 impl Category {
+    /// Converts a string to a category
     pub fn from_string(category: String) -> Category {
-        match category.as_str() {
+        let category = SecretString::new(category);
+        match category.expose_secret().as_str() {
             "Login" => Category::Login,
             "BankCard" => Category::BankCard,
             "Note" => Category::Note,
-            _ => Category::Custom(category),
+            _ => Category::Other,
         }
     }
+    /// Converts a category to a string
     pub fn as_str(&self) -> &str {
         match self {
             Category::Login => "Login",
             Category::BankCard => "BankCard",
             Category::Note => "Note",
-            Category::Custom(name) => name,
+            Category::Other => "Other",
         }
     }
 }
 
-impl Serialize for Category {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(self.as_str())
-    }
-}
-
-impl<'a> Deserialize<'a> for Category {
-    fn deserialize<D: serde::Deserializer<'a>>(deserializer: D) -> Result<Self, D::Error> {
-        let category = String::deserialize(deserializer)?;
-        Ok(Category::from_string(category))
-    }
-}
-
 /// Represents a record in the database
-/// ## serde
-/// If id, created and last_modified are not set, they will be set to their default values. Default value for last_modified is current time.
-#[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Zeroize, ZeroizeOnDrop, Serialize, Deserialize)]
 pub struct Record {
     #[serde(default)]
     id: u64,
@@ -58,7 +48,7 @@ pub struct Record {
     subtitle: String,
     category: Category,
     #[zeroize(skip)]
-    #[serde(default)]
+    #[serde(default = "chrono::Local::now")]
     created: chrono::DateTime<chrono::Local>,
     #[zeroize(skip)]
     #[serde(default = "chrono::Local::now")]
@@ -66,6 +56,9 @@ pub struct Record {
 }
 
 impl Record {
+    /// Creates a new record
+    /// - id is set to 0 to indicate that it is not in the database
+    /// - created and last_modified are set to the current time
     pub fn new(title: String, subtitle: String, category: Category) -> Record {
         Record {
             id: 0,
@@ -97,17 +90,6 @@ impl Record {
     pub fn set_id(&mut self, id: u64) {
         self.id = id;
     }
-    pub fn set_title(&mut self, title: String) {
-        self.title.zeroize();
-        self.title = title;
-    }
-    pub fn set_subtitle(&mut self, subtitle: String) {
-        self.subtitle.zeroize();
-        self.subtitle = subtitle;
-    }
-    pub fn set_category(&mut self, category: Category) {
-        self.category = category;
-    }
     pub fn set_created(&mut self, created: chrono::DateTime<chrono::Local>) {
         self.created = created;
     }
@@ -116,13 +98,15 @@ impl Record {
     }
 }
 
+/// Represents value of a content
 #[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum Value {
     Number(Number),
     Text(Text),
+    LongText(LongText),
     SensitiveText(SensitiveText),
-    Datetime(Datetime),
+    Date(Date),
     Password(Password),
     TOTPSecret(TOTPSecret),
     Url(Url),
@@ -131,6 +115,25 @@ pub enum Value {
     BankCardNumber(BankCardNumber),
 }
 
+impl ToSecretString for Value {
+    fn to_secret_string(&self) -> SecretString {
+        match &self {
+            Value::Number(number) => number.to_secret_string(),
+            Value::Text(text) => text.to_secret_string(),
+            Value::LongText(long_text) => long_text.to_secret_string(),
+            Value::SensitiveText(sensitive_text) => sensitive_text.to_secret_string(),
+            Value::Date(date) => date.to_secret_string(),
+            Value::Password(password) => password.to_secret_string(),
+            Value::TOTPSecret(totp_secret) => totp_secret.to_secret_string(),
+            Value::Url(url) => url.to_secret_string(),
+            Value::Email(email) => email.to_secret_string(),
+            Value::PhoneNumber(phone_number) => phone_number.to_secret_string(),
+            Value::BankCardNumber(bank_card_number) => bank_card_number.to_secret_string(),
+        }
+    }
+}
+
+/// Represents a content in the database
 #[derive(Debug, PartialEq, Zeroize, ZeroizeOnDrop, Serialize, Deserialize)]
 pub struct Content {
     #[serde(default)]
@@ -143,6 +146,8 @@ pub struct Content {
 }
 
 impl Content {
+    /// Creates a new content
+    /// - id is set to 0 to indicate that it is not in the database
     pub fn new(label: String, position: u32, required: bool, value: Value) -> Content {
         Content {
             id: 0,
@@ -156,11 +161,12 @@ impl Content {
         match self.value {
             Value::Number(_) => "Number",
             Value::Text(_) => "Text",
+            Value::LongText(_) => "LongText",
             Value::SensitiveText(_) => "SensitiveText",
-            Value::Datetime(_) => "Datetime",
+            Value::Date(_) => "Date",
             Value::Password(_) => "Password",
             Value::TOTPSecret(_) => "TOTPSecret",
-            Value::Url(_) => "URL",
+            Value::Url(_) => "Url",
             Value::Email(_) => "Email",
             Value::PhoneNumber(_) => "PhoneNumber",
             Value::BankCardNumber(_) => "BankCardNumber",
@@ -186,22 +192,151 @@ impl Content {
         self.id.zeroize();
         self.id = id;
     }
-    pub fn set_label(&mut self, label: String) {
-        self.label.zeroize();
-        self.label = label;
-    }
-    pub fn set_position(&mut self, position: u32) {
-        self.position.zeroize();
-        self.position = position;
-    }
-    pub fn set_required(&mut self, required: bool) {
-        self.required.zeroize();
-        self.required = required;
-    }
 }
 
-//TODO Tests
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn test_category_from_string() {
+        assert_eq!(Category::from_string("Login".to_string()), Category::Login);
+        assert_eq!(
+            Category::from_string("BankCard".to_string()),
+            Category::BankCard
+        );
+        assert_eq!(Category::from_string("Note".to_string()), Category::Note);
+        assert_eq!(Category::from_string("Other".to_string()), Category::Other);
+        assert_eq!(
+            Category::from_string("Unknown".to_string()),
+            Category::Other
+        );
+    }
+    #[test]
+    fn test_category_as_str() {
+        assert_eq!(Category::Login.as_str(), "Login");
+        assert_eq!(Category::BankCard.as_str(), "BankCard");
+        assert_eq!(Category::Note.as_str(), "Note");
+        assert_eq!(Category::Other.as_str(), "Other");
+    }
+    #[test]
+    fn test_category_serialize() {
+        assert_eq!(
+            serde_json::to_string(&Category::Login).unwrap(),
+            "\"Login\""
+        );
+        assert_eq!(
+            serde_json::to_string(&Category::BankCard).unwrap(),
+            "\"Bank Card\""
+        );
+        assert_eq!(serde_json::to_string(&Category::Note).unwrap(), "\"Note\"");
+        assert_eq!(
+            serde_json::to_string(&Category::Other).unwrap(),
+            "\"Other\""
+        );
+    }
+    #[test]
+    fn test_category_deserialize() {
+        assert_eq!(
+            serde_json::from_str::<Category>("\"Login\"").unwrap(),
+            Category::Login
+        );
+        assert_eq!(
+            serde_json::from_str::<Category>("\"BankCard\"").unwrap(),
+            Category::BankCard
+        );
+        assert_eq!(
+            serde_json::from_str::<Category>("\"Bank Card\"").unwrap(),
+            Category::BankCard
+        );
+        assert_eq!(
+            serde_json::from_str::<Category>("\"Note\"").unwrap(),
+            Category::Note
+        );
+        assert_eq!(
+            serde_json::from_str::<Category>("\"Unknown\"").unwrap(),
+            Category::Other
+        );
+    }
+    #[test]
+    fn test_new_record() {
+        let mut record = Record::new("Title".to_string(), "Subtitle".to_string(), Category::Login);
+        assert_eq!(record.id(), 0);
+        assert_eq!(record.title(), "Title");
+        assert_eq!(record.subtitle(), "Subtitle");
+        assert_eq!(record.category(), &Category::Login);
+        record.set_id(1);
+        let now = chrono::Local::now();
+        record.set_created(now);
+        record.set_last_modified(now);
+        assert_eq!(record.id(), 1);
+        assert_eq!(record.created(), now);
+        assert_eq!(record.last_modified(), now);
+    }
+    #[test]
+    fn test_record_serialize() {
+        let record = Record::new("Title".to_string(), "Subtitle".to_string(), Category::Login);
+        let created = serde_json::to_string(&record.created()).unwrap();
+        let last_modified = serde_json::to_string(&record.last_modified()).unwrap();
+        assert_eq!(
+            serde_json::to_string(&record).unwrap(),
+            format!("{{\"id\":0,\"title\":\"Title\",\"subtitle\":\"Subtitle\",\"category\":\"Login\",\"created\":{},\"last_modified\":{}}}",created,last_modified)
+        );
+    }
+    #[test]
+    fn test_record_deserialize() {
+        let now = chrono::Local::now();
+        let record = serde_json::from_str::<Record>(
+            "{\"title\":\"Title\",\"subtitle\":\"Subtitle\",\"category\":\"Login\"}",
+        );
+        assert!(record.is_ok());
+        let record = record.unwrap();
+        assert_eq!(record.id(), 0);
+        assert_eq!(record.title(), "Title");
+        assert_eq!(record.subtitle(), "Subtitle");
+        assert_eq!(record.category(), &Category::Login);
+        assert!(record.created() >= now);
+        assert!(record.last_modified() >= now);
+    }
+    #[test]
+    fn test_new_content() {
+        let mut content = Content::new(
+            "Label".to_string(),
+            1,
+            true,
+            Value::Text(Text::new("Text".to_string())),
+        );
+        assert_eq!(content.id(), 0);
+        assert_eq!(content.label(), "Label");
+        assert_eq!(content.position(), 1);
+        assert_eq!(content.required(), true);
+        assert_eq!(content.value(), &Value::Text(Text::new("Text".to_string())));
+        content.set_id(1);
+        assert_eq!(content.id(), 1);
+    }
+    #[test]
+    fn test_content_serialize() {
+        let content = Content::new(
+            "Label".to_string(),
+            1,
+            true,
+            Value::Text(Text::new("Text".to_string())),
+        );
+        assert_eq!(
+            serde_json::to_string(&content).unwrap(),
+            "{\"id\":0,\"label\":\"Label\",\"position\":1,\"required\":true,\"kind\":\"Text\",\"value\":\"Text\"}"
+        );
+    }
+    #[test]
+    fn test_content_deserialize() {
+        let content = serde_json::from_str::<Content>(
+            "{\"label\":\"Label\",\"position\":1,\"required\":true,\"kind\":\"Text\",\"value\":\"Text\"}",
+        );
+        assert!(content.is_ok());
+        let content = content.unwrap();
+        assert_eq!(content.id(), 0);
+        assert_eq!(content.label(), "Label");
+        assert_eq!(content.position(), 1);
+        assert_eq!(content.required(), true);
+        assert_eq!(content.value(), &Value::Text(Text::new("Text".to_string())));
+    }
 }

@@ -1,8 +1,7 @@
 pub mod model;
-mod utils;
-
-use crate::database::model::value::ToSecretString;
 use model::*;
+mod convert;
+
 use rusqlite::{params, Connection, Result};
 use secrecy::{ExposeSecret, SecretString};
 
@@ -28,6 +27,11 @@ impl Database {
         connection
             .execute_batch(sql.expose_secret())
             .map_err(|_| "Invalid password")?;
+
+        let sql = SecretString::new("PRAGMA cipher_memory_security = ON;".to_string());
+        connection
+            .execute_batch(sql.expose_secret())
+            .map_err(|_| "Failed to enable memory security")?;
 
         let sql = SecretString::new(
                         "create table if not exists Record (
@@ -66,14 +70,14 @@ impl Database {
         let sql = SecretString::new(
             "SELECT id_record, title, subtitle, created, last_modified, category FROM Record WHERE id_record = ?1;".to_string());
         let mut stmt = self.connection.prepare(sql.expose_secret())?;
-        stmt.query_row(params![id_record], |row| utils::row_to_record(row))
+        stmt.query_row(params![id_record], |row| convert::row_to_record(row))
     }
 
     pub fn get_content(&self, id_content: u64) -> Result<Content> {
         let sql = SecretString::new(
             "SELECT id_content, label, position, required, kind, value FROM Content WHERE id_content = ?1;".to_string());
         let mut stmt = self.connection.prepare(sql.expose_secret())?;
-        stmt.query_row(params![id_content], |row| utils::row_to_content(row))
+        stmt.query_row(params![id_content], |row| convert::row_to_content(row))
     }
     pub fn get_all_records(&self) -> Result<Vec<Record>> {
         let sql = SecretString::new(
@@ -81,14 +85,14 @@ impl Database {
                 .to_string(),
         );
         let mut stmt = self.connection.prepare(sql.expose_secret())?;
-        let items_iter = stmt.query_map([], |row| utils::row_to_record(row))?;
+        let items_iter = stmt.query_map([], |row| convert::row_to_record(row))?;
         items_iter.collect()
     }
 
     pub fn get_all_content_for_record(&self, id_record: u64) -> Result<Vec<Content>> {
         let sql = SecretString::new("SELECT id_content, label, position, required, kind, value FROM Content WHERE id_record = ?1;".to_string());
         let mut stmt = self.connection.prepare(sql.expose_secret())?;
-        let items_iter = stmt.query_map([id_record], |row| utils::row_to_content(row))?;
+        let items_iter = stmt.query_map([id_record], |row| convert::row_to_content(row))?;
         items_iter.collect()
     }
     pub fn save_record(&self, record: &mut Record) -> Result<()> {
@@ -119,18 +123,7 @@ impl Database {
         let position = content.position();
         let required = content.required();
         let kind = content.kind();
-        let secret_value = match &content.value() {
-            Value::Number(number) => number.to_secret_string(),
-            Value::Text(text) => text.to_secret_string(),
-            Value::SensitiveText(sensitive_text) => sensitive_text.to_secret_string(),
-            Value::Datetime(datetime) => datetime.to_secret_string(),
-            Value::Password(password) => password.to_secret_string(),
-            Value::TOTPSecret(totp_secret) => totp_secret.to_secret_string(),
-            Value::Url(url) => url.to_secret_string(),
-            Value::Email(email) => email.to_secret_string(),
-            Value::PhoneNumber(phone_number) => phone_number.to_secret_string(),
-            Value::BankCardNumber(bank_card_number) => bank_card_number.to_secret_string(),
-        };
+        let secret_value = content.value().to_secret_string();
         let value = secret_value.expose_secret();
         let id_content = content.id();
         let mut params = params![label, position, required, kind, value].to_vec();

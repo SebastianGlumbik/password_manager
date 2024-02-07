@@ -9,6 +9,15 @@
     "productName": "Password Manager"
   },
   "tauri": {
+    "allowlist": {
+      "clipboard": {
+        "writeText": true
+      },
+      "dialog": {
+        "message": true,
+        "confirm": true
+      }
+    },
     "bundle": {
       "active": true,
       "targets": "all",
@@ -22,7 +31,10 @@
       ],
       "category": "Utility",
       "shortDescription": "Password Manager",
-      "longDescription": "Password manager for bachelor thesis"
+      "longDescription": "Password manager for bachelor thesis",
+      "macOS": {
+        "minimumSystemVersion": "10.15"
+      }
     },
     "security": {
       "csp": "default-src 'self'"

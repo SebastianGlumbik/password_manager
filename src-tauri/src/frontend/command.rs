@@ -10,7 +10,7 @@ pub enum WindowType {
 }
 
 /// Creates specific window based on the database state and returns the window type.
-/// ## Errors
+/// # Error
 /// Returns an error if the window cannot be created.
 #[tauri::command]
 pub async fn initialize_window<'a>(
@@ -30,13 +30,12 @@ pub async fn initialize_window<'a>(
 }
 
 /// Checks if the database exists, connects to it, opens main window and closes login window.
-/// ## Dialogs
-/// If the database does not exist, a blocking dialog message will be shown and the application will restart.
-/// ## Errors
-/// Returns an error if:
+/// # Error
 /// - Connection to the database fails
-/// - The main window cannot be created
-/// - The login window cannot be closed
+/// - The new window cannot be created
+/// - The current window cannot be closed
+/// # Restart
+/// Restarts the application if the database does not exist. Error is shown in a blocking dialog.
 #[tauri::command]
 pub async fn login<'a>(
     password: SecretString,
@@ -70,14 +69,13 @@ pub async fn login<'a>(
 }
 
 /// Checks if database does not exist, compares passwords, connects to database, creates main window and closes register window.
-/// ## Dialogs
-/// If the database does exist, a dialog will be shown and the application will restart.
-/// ## Errors
-/// Returns an error if:
+/// # Error
 /// - Passwords do not match
 /// - Connection to the database fails
-/// - The main window cannot be created
-/// - The register window cannot be closed
+/// - The new window cannot be created
+/// - The current window cannot be closed
+/// # Restart
+/// Restarts the application if the database already exists. Error is shown in a blocking dialog.
 #[tauri::command(rename_all = "snake_case")]
 pub async fn register<'a>(
     password: SecretString,
@@ -116,8 +114,8 @@ pub async fn register<'a>(
 }
 
 /// Returns all records from the database.
-/// ## Errors
-/// When error occurs, a blocking dialog message will be shown and the application will restart.
+/// # Restart
+/// Restarts the application if any error occurs. Errors are shown in blocking dialogs.
 #[tauri::command]
 pub async fn get_all_records<'a>(
     connection: State<'a, DatabaseConnection>,
@@ -155,11 +153,9 @@ pub async fn get_all_records<'a>(
         }
     }
 
-    tauri::api::dialog::blocking::message(
-        Some(&window),
-        "Error",
-        "Failed to load records, application will restart",
-    );
+/// Returns ids of records that have compromised passwords. A password is considered compromised if it is a common password or if it is exposed in a data breach.
+/// # Restart
+/// Restarts the application if any error occurs. Errors are shown in blocking dialogs.
 
     app_handle.restart();
     Err(())*/
@@ -206,9 +202,9 @@ pub async fn get_compromised_records<'a>(
     Ok(result)
 }
 
-/// Returns all content for a specific record.
-/// Errors
-/// When error occurs, a blocking dialog message will be shown and the application will restart.
+/// Returns all content for a specific record. If Record is new, it returns default content for the category. If content is TOTP secret, it is added to the TOTP manager.
+/// # Restart
+/// Restarts the application if any error occurs. Errors are shown in blocking dialogs.
 #[tauri::command]
 pub async fn get_all_content_for_record<'a>(
     record: Record,
@@ -298,11 +294,10 @@ pub async fn get_all_content_for_record<'a>(
 }
 
 /// Deletes a record from the database.
-/// ## Dialogs
-/// - Has a confirmation dialog before deleting the record
-/// - Has a message dialog if the record could not be deleted
-/// ## Errors
-///
+/// # Error
+/// Returns an error if the record cannot be deleted.
+/// # Restart
+/// Restarts the application if the database cannot be accessed.
 #[tauri::command]
 pub async fn delete_record<'a>(
     record: Record,

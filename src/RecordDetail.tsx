@@ -25,14 +25,13 @@ async function copyTextToClipboard(text: string) {
 
 /**
  * Record detail component
- * @param {Record} record - The record to be displayed.
- * @param {Function} refresh - Function to refresh the records list.
+ * @param record - The record to be displayed.
+ * @param refresh - Function to refresh the records list.
  * @return {JSX.Element} - Div containing the record detail.
  */
 
 export default function RecordDetail({record,refresh}: {record: () => Record, refresh: () => void}): JSX.Element {
-    //let record = props.record;
-    const [allContent,{mutate: newContent, refetch: refetchContent}] = createResource(record,async (): Promise<Content[]> => (await invoke("get_all_content_for_record", { record: record()}) as Content[]).map((item: Content) => new Content(item.label, item.position, item.required, item.kind, item.value, item.id)).sort((a, b) => a.position - b.position));
+    const [allContent,{mutate: newContent}] = createResource(record,async () => (await invoke<Content[]>("get_all_content_for_record", { record: record()})).map((item: Content) => new Content(item.label, item.position, item.required, item.kind, item.value, item.id)).sort((a, b) => a.position - b.position));
     const [edit, setEdit] = editSignal;
     const [error, setError] = createSignal("");
 
@@ -42,14 +41,13 @@ export default function RecordDetail({record,refresh}: {record: () => Record, re
                 event.preventDefault();
                 if(edit()) {
                     try {
-                        record().id = (await invoke("save_record",{record: record(), content: allContent()}) as Record).id;
+                        record().id = await invoke<number>("save_record",{record: record(), content: allContent()});
                     }
                     catch (e) {
                         await message(e as string, { title: 'Error', type: 'error' });
                     }
 
                     refresh();
-                    refetchContent();
                 }
 
                 setEdit(!edit());

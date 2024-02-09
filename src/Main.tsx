@@ -21,7 +21,7 @@ export default function Main(): JSX.Element {
     const [search, setSearch] = createSignal("");
     const filteredRecords = () => allRecords()?.filter(record => compromisedOnly() ? compromisedRecords()?.includes(record.id as number) : true ).filter(record => (record.title.toLowerCase().includes(search().toLowerCase()) || record.subtitle.toLowerCase().includes(search().toLowerCase()) || record.category.toLowerCase().includes(search().toLowerCase())));
     const [selected, setSelected] = createSignal<Record | "Settings" |  undefined>((filteredRecords()?.[0]) as Record);
-    const [cloud, {refetch: uploadToCloud }] = createResource(async (): Promise<string> => invoke("save_to_cloud"));
+    const [cloud, {refetch: uploadToCloud }] = createResource(async (): Promise<string> => invoke("cloud"));
 
     const [edit, setEdit] = editSignal;
     const select = async (selection: Record | "Settings" |  undefined) => {
@@ -38,19 +38,26 @@ export default function Main(): JSX.Element {
         return true;
     }
 
-    let unlisten : UnlistenFn | undefined = undefined;
+    let unlistenNewRecord : UnlistenFn | undefined = undefined;
+    let unlistenSettings : UnlistenFn | undefined = undefined;
 
     onMount(async () => {
-        unlisten = await listen("new_record", async (event) => {
+        unlistenNewRecord = await listen("new_record", async (event) => {
             let temp : Record = event.payload as Record;
             await select(new Record(temp.title, temp.subtitle, temp.category, temp.created, temp.last_modified, temp.id));
             setEdit(true);
         });
+        unlistenSettings = await listen("settings", async () => {
+            await select("Settings");
+        });
     });
 
     onCleanup(async () => {
-        if (unlisten)
-            unlisten();
+        if (unlistenNewRecord)
+            unlistenNewRecord();
+
+        if (unlistenSettings)
+            unlistenSettings();
     });
 
     const refetchAll = () => {
@@ -102,7 +109,7 @@ export default function Main(): JSX.Element {
                                     </div>
                                     <div class="truncate">
                                         <div class="text-[14px] truncate">
-                                            Cloud settings
+                                            Cloud status
                                         </div>
                                         <div class="text-[12px] text-[#828282] dark:text-[#9F9F9F] truncate">
                                             <Suspense fallback={"Syncing..."}>

@@ -246,10 +246,17 @@ export default function RecordDetail({record,refresh}: {record: () => Record, re
 function ContentValue({content}: {content: Content}): JSX.Element {
     const [edit, _] = editSignal;
     const [error, setError] = createSignal("");
-    const [additional, setAdditional] = createSignal<number | string | [string,number]>("");
     const [visibility, setVisibility] = createSignal(false);
+    const [passwordStrength, setPasswordStrength] = createSignal(0);
+    const [passwordLength, setPasswordLength] = createSignal(16);
+    const [numbers, setNumbers] = createSignal(true);
+    const [upperCase, setUpperCase] = createSignal(true);
+    const [lowerCase, setLowerCase] = createSignal(true);
+    const [symbols, setSymbols] = createSignal(true);
+    const [cardType, setCardType] = createSignal("");
+    const [totp, setTotp] = createSignal(["",0]);
 
-    const [value] = createResource(
+    const [value,{mutate: setValue}] = createResource(
         () => [edit(), visibility()] as const,
         async ([edit, visible]) => {
             if((content.kind === "SensitiveText" || content.kind === "Password" || content.kind === "BankCardNumber" || content.kind === "TOTPSecret")){
@@ -260,7 +267,7 @@ function ContentValue({content}: {content: Content}): JSX.Element {
                     try {
                         content.value = await invoke("get_content_value",{id: content.id as number}) as string;
                         if(content.kind === "Password"){
-                            setAdditional(await invoke("password_strength",{password: content.value}) as number);
+                            setPasswordStrength(await invoke("password_strength",{password: content.value}) as number);
                         }
                     }
                     catch (e) {
@@ -316,8 +323,8 @@ function ContentValue({content}: {content: Content}): JSX.Element {
         case "TOTPSecret": {
             placeholder = "Totp secret";
             if (content.id !== undefined && content.id !== 0) {
-                invoke("get_totp_code",{id: content.id as number}).then((value) => setAdditional(value as [string, number]));
-                let intervalId = setInterval(async () => setAdditional(await invoke("get_totp_code",{id: content.id as number})), 1000);
+                invoke("get_totp_code",{id: content.id as number}).then((value) => setTotp(value as [string, number]));
+                let intervalId = setInterval(async () => setTotp(await invoke("get_totp_code",{id: content.id as number})), 1000);
 
                 onCleanup(() => {
                     if (intervalId) {
@@ -342,7 +349,7 @@ function ContentValue({content}: {content: Content}): JSX.Element {
         case "BankCardNumber": {
             placeholder = "Enter bank card number";
             if (content.id !== undefined && content.id !== 0) {
-                invoke("card_type",{id: content.id as number}).then((value) => setAdditional(value as string)).catch(_ => _);
+                invoke("card_type",{id: content.id as number}).then((value) => setCardType(value as string)).catch(_ => _);
             }
             break;
         }
@@ -390,7 +397,7 @@ function ContentValue({content}: {content: Content}): JSX.Element {
                 if (!edit()) await copyValueToClipboard(content.id as number,content.label)
             }}>
                 <Show when={content.kind == "BankCardNumber"}>
-                    <div>{additional()}</div>
+                    <div>{cardType()}</div>
                 </Show>
                 <div class="flex flex-col w-full">
                     <Switch fallback={
@@ -408,10 +415,10 @@ function ContentValue({content}: {content: Content}): JSX.Element {
                                          event.target.setCustomValidity("");
                                          setError("");
                                          if (content.kind == "BankCardNumber") {
-                                             setAdditional(await invoke("card_type", {id: content.id}) as string);
+                                             setCardType(await invoke("card_type", {id: content.id}) as string);
                                          }
                                          if (content.kind == "Password") {
-                                             setAdditional(await invoke("password_strength", {password: content.value}) as number);
+                                             setPasswordStrength(await invoke("password_strength", {password: content.value}) as number);
                                          }
                                      } else if (error) {
                                          event.target.setCustomValidity(error);
@@ -424,8 +431,48 @@ function ContentValue({content}: {content: Content}): JSX.Element {
                                      setError(event.currentTarget.validationMessage);
                                  }}>
                             </input>
-                            <Show when={content.kind == "Password" && edit() && additional()}>
-                                <PasswordStrengthIndicator strength={additional as () => number} />
+                            <Show when={content.kind == "Password" && edit()}>
+                                <Show when={passwordStrength()}>
+                                    <PasswordStrengthIndicator strength={passwordStrength as () => number} />
+                                </Show>
+                                <div class="flex flex-col my-1">
+                                    <p class="text-[14px]">Password generator</p>
+                                    <div class="flex flex-row items-center gap-2">
+                                        <p>{passwordLength()}</p>
+                                        <input type="range" min={8} max={50} step={1} value={passwordLength()} class="range range-xs" onInput={event => setPasswordLength(Number.parseInt(event.target.value))}/>
+                                        <button title="Generate" onClick={async (event) => {
+                                            event.preventDefault();
+                                            try {
+                                                content.value = await invoke("generate_password",{length: passwordLength(),numbers: numbers(), uppercase_letters: upperCase(), lowercase_letters: lowerCase(), symbols: symbols()}) as string;
+                                                setValue(content.value);
+                                                setPasswordStrength(await invoke("password_strength", {password: content.value}) as number);
+                                                setError("");
+                                            } catch (e) {
+                                                setError(e as string);
+                                            }
+                                        }}>
+                                            <GetSVG name="arrows-rotate" class="w-4 cursor-pointer hover:fill-[#0064E1]" />
+                                        </button>
+                                    </div>
+                                    <div class="flex flex-row items-center justify-evenly mt-0.5">
+                                        <div class="flex flex-row items-center gap-2 ">
+                                            <input type="checkbox" checked={numbers()} class="checkbox checkbox-sm [--chkbg:#0064E1] [--chkfg:#E9E9E9]" onInput={event => setNumbers(event.target.checked)}/>
+                                            <p class="text-[14px] truncate">Number</p>
+                                        </div>
+                                        <div class="flex flex-row items-center gap-2">
+                                            <input type="checkbox" checked={upperCase()} class="checkbox checkbox-sm [--chkbg:#0064E1] [--chkfg:#E9E9E9]" onInput={event => setUpperCase(event.target.checked)}/>
+                                            <p class="text-[14px] truncate">Uppercase</p>
+                                        </div>
+                                        <div class="flex flex-row items-center gap-2">
+                                            <input type="checkbox" checked={lowerCase()} class="checkbox checkbox-sm [--chkbg:#0064E1] [--chkfg:#E9E9E9]" onInput={event => setLowerCase(event.target.checked)}/>
+                                            <p class="text-[14px] truncate">Lowercase</p>
+                                        </div>
+                                        <div class="flex flex-row items-center gap-2">
+                                            <input type="checkbox" checked={symbols()} class="checkbox checkbox-sm [--chkbg:#0064E1] [--chkfg:#E9E9E9]" onInput={event => setSymbols(event.target.checked)}/>
+                                            <p class="text-[14px] truncate">Symbols</p>
+                                        </div>
+                                    </div>
+                                </div>
                             </Show>
                         </>
                     }>
@@ -439,8 +486,8 @@ function ContentValue({content}: {content: Content}): JSX.Element {
                         </Match>
                         <Match when={content.kind == "TOTPSecret" && !edit()}>
                             <div class="flex flex-row w-full">
-                                <div class="bg-inherit border-none truncate justify-end text-right grow invalid:text-red-500 read-only:pointer-events-none read-only:select-none">{(additional() as [string, number])[0]}</div>
-                                <div class="radial-progress ml-2 text-[70%]" style={{ "--value": `${(((additional() as [string, number])[1] as number)/30 * 100)}`, "--size": "2rem", "--thickness": "3px" }} role="progressbar">{(additional() as [string, number])[1]}</div>
+                                <div class="bg-inherit border-none truncate justify-end text-right grow invalid:text-red-500 read-only:pointer-events-none read-only:select-none">{(totp() as [string, number])[0]}</div>
+                                <div class="radial-progress ml-2 text-[70%]" style={{ "--value": `${(((totp() as [string, number])[1] as number)/30 * 100)}`, "--size": "2rem", "--thickness": "3px" }} role="progressbar">{(totp() as [string, number])[1]}</div>
                             </div>
                         </Match>
                     </Switch>

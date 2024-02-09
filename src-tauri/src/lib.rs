@@ -33,6 +33,7 @@ pub fn run() -> anyhow::Result<()> {
             initialize_window,
             login,
             register,
+            change_password,
             get_all_records,
             get_compromised_records,
             save_record,
@@ -46,7 +47,8 @@ pub fn run() -> anyhow::Result<()> {
             check_password,
             copy_value_to_clipboard,
             card_type,
-            save_to_cloud
+            generate_password,
+            cloud
         ]);
 
     #[cfg(target_os = "macos")]

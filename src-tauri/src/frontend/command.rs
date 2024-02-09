@@ -109,6 +109,24 @@ pub async fn register<'a>(
     Ok(())
 }
 
+/// Changes the master password.
+/// # Error
+/// Reason why the password change failed.
+#[tauri::command(rename_all = "snake_case")]
+pub async fn change_password<'a>(
+    password: SecretString,
+    confirm_password: SecretString,
+    database: State<'a, Database>,
+) -> Result<(), &'static str> {
+    if password.expose_secret() != confirm_password.expose_secret() {
+        return Err("Passwords do not match.");
+    }
+
+    database.change_key(password.expose_secret())?;
+
+    Ok(())
+}
+
 /// Returns all records from the database.
 /// # Restart
 /// Restarts the application if any error occurs. Errors are shown in blocking dialogs.
@@ -563,13 +581,31 @@ pub async fn card_type<'a>(id: u64, database: State<'a, Database>) -> Result<Str
     )
 }
 
-//TODO Cloud sync
+#[tauri::command(rename_all = "snake_case")]
+pub async fn generate_password<'a>(
+    length: usize,
+    numbers: bool,
+    uppercase_letters: bool,
+    lowercase_letters: bool,
+    symbols: bool,
+) -> Result<ContentValue, &'static str> {
+    Ok(ContentValue(SecretString::new(
+        passwords::PasswordGenerator {
+            length,
+            numbers,
+            lowercase_letters,
+            uppercase_letters,
+            symbols,
+            spaces: false,
+            exclude_similar_characters: false,
+            strict: true,
+        }
+        .generate_one()?,
+    )))
+}
+
+//TODO Cloud
 #[tauri::command]
-pub async fn save_to_cloud() -> Result<String, &'static str> {
-    // Simulate uploading data
-    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-    Ok(format!(
-        "Last saved at {}",
-        chrono::Local::now().format("%d.%m.%Y %H:%M")
-    ))
+pub async fn cloud() -> Result<String, &'static str> {
+    Ok("Not implemented".to_string())
 }

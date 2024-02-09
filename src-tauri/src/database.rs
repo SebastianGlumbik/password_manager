@@ -61,7 +61,10 @@ impl Database {
         })
     }
 
-    pub fn change_key(&mut self, new_password: &str) -> Result<(), &'static str> {
+    pub fn change_key(&self, new_password: &str) -> Result<(), &'static str> {
+        if new_password.trim().is_empty() {
+            return Err("Password can not be empty");
+        }
         let sql = SecretString::new(format!("PRAGMA rekey = '{new_password}';"));
         self.connection
             .lock()

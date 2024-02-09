@@ -123,3 +123,14 @@ input::-webkit-inner-spin-button {
 input[type=number] {
   -moz-appearance: textfield;
 }
+
+.range {
+  --range-shdw: #0064E1;
+}
+
+.range::-webkit-slider-runnable-track {
+  @apply bg-[#DADADA] dark:bg-[#414141] rounded-full;
+}
+.range::-moz-range-track {
+  @apply bg-[#DADADA] dark:bg-[#414141] rounded-full;
+}

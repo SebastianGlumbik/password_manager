@@ -1,3 +1,5 @@
+pub mod event;
+use super::*;
 use tauri::{AboutMetadata, CustomMenuItem, Menu, MenuEntry, MenuItem, Submenu};
 
 /// Default macOS menu for non-resizable windows.
@@ -148,20 +150,13 @@ pub fn create_main_menu(package_name: &str) -> Menu {
             .add_native_item(MenuItem::Separator);
     }
 
-    file_menu = file_menu
-        .add_submenu(Submenu::new(
-            "Import".to_string(),
-            Menu::new().add_item(CustomMenuItem::new("Import CSV".to_string(), "CSV")),
-        ))
-        .add_submenu(Submenu::new(
-            "Export".to_string(),
-            Menu::new()
-                .add_item(CustomMenuItem::new("Export CSV".to_string(), "CSV"))
-                .add_item(CustomMenuItem::new(
-                    "Export Database".to_string(),
-                    "Database",
-                )),
-        ));
+    file_menu = file_menu.add_submenu(Submenu::new(
+        "Export".to_string(),
+        Menu::new().add_item(CustomMenuItem::new(
+            "Export Database".to_string(),
+            "Database",
+        )),
+    ));
 
     menu = menu.add_submenu(Submenu::new("File", file_menu));
 

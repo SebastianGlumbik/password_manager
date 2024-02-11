@@ -1,9 +1,8 @@
-use secrecy::{ExposeSecret, SecretString};
-use serde::{Deserialize, Serialize};
-use zeroize::{Zeroize, ZeroizeOnDrop};
-
 pub mod value;
-pub use value::*;
+use super::*;
+use serde::{Deserialize, Serialize};
+use value::*;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 /// Record category
 #[derive(Debug, PartialEq, Clone, Zeroize, ZeroizeOnDrop, Serialize, Deserialize)]
@@ -308,7 +307,7 @@ mod tests {
         assert_eq!(content.id(), 0);
         assert_eq!(content.label(), "Label");
         assert_eq!(content.position(), 1);
-        assert_eq!(content.required(), true);
+        assert!(content.required());
         assert_eq!(content.value(), &Value::Text(Text::new("Text".to_string())));
         content.set_id(1);
         assert_eq!(content.id(), 1);
@@ -336,7 +335,7 @@ mod tests {
         assert_eq!(content.id(), 0);
         assert_eq!(content.label(), "Label");
         assert_eq!(content.position(), 1);
-        assert_eq!(content.required(), true);
+        assert!(content.required());
         assert_eq!(content.value(), &Value::Text(Text::new("Text".to_string())));
     }
 }

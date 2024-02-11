@@ -1,7 +1,11 @@
+mod menu;
 use super::*;
+use crate::database::Database;
+use menu::event::*;
+use menu::*;
 use tauri::WindowBuilder;
 
-/// Creates login window with specific menu ([create_login_menu]). Does not create the window content.
+/// Creates login window with specific menu ([create_login_menu]).
 /// # Errors
 /// Returns an error if the window cannot be created. It will **not** return an error if the window already exists.
 pub fn create_login_window(app_handle: AppHandle) -> tauri::Result<()> {
@@ -33,7 +37,7 @@ pub fn create_login_window(app_handle: AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-/// Creates register window with specific menu ([create_register_menu]). Does not create the window content.
+/// Creates register window with specific menu ([create_register_menu]).
 /// # Errors
 /// Returns an error if the window cannot be created. It will **not** return an error if the window already exists.
 pub fn create_register_window(app_handle: AppHandle) -> tauri::Result<()> {
@@ -67,7 +71,7 @@ pub fn create_register_window(app_handle: AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-/// Creates main window with specific menu ([create_main_menu]). Does not create the window content.
+/// Creates main window with specific menu ([create_main_menu]).
 /// # Errors
 /// Returns an error if the window cannot be created. It will **not** return an error if the window already exists.
 pub fn create_main_window(app_handle: AppHandle) -> tauri::Result<()> {

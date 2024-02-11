@@ -1,19 +1,8 @@
 use super::*;
-use crate::database::model::{Category, Record};
-use std::fmt::format;
-use tauri::MenuEvent;
-
-/// Shows a critical error message and restarts the application.
-///
-/// **NOTE:** Has blocking dialog [`tauri::api::dialog::blocking`].
-pub fn critical_error(message: &str, app_handle: AppHandle, window: Window) {
-    tauri::api::dialog::blocking::message(
-        Some(&window),
-        "Critical Error",
-        format!("{}\nApplication will now restart", message),
-    );
-    app_handle.restart();
-}
+use crate::database::model::*;
+use crate::database::DATABASE_FILE_NAME;
+use std::fs;
+use tauri::{MenuEvent, Window};
 
 /// Handles all menu events.
 pub fn menu_event(event: MenuEvent, app_handle: AppHandle, window: Window) {
@@ -60,12 +49,9 @@ pub fn menu_event(event: MenuEvent, app_handle: AppHandle, window: Window) {
     }
 }
 
-/// Deletes the database file and restarts the application. Has blocking dialogs, so it cannot be run on the main thread.
-/// # Dialogs
-/// - Has a confirmation dialog before deleting the database file
-/// - Has a message dialog if the database file could not be deleted
+/// Deletes the database file and restarts the application. Has dialogs.
 pub async fn start_over(app_handle: AppHandle, window: Window) {
-    if let Some(path_buf) = database_path(app_handle.clone()) {
+    if let Some(path_buf) = Database::path(app_handle.clone()) {
         if tauri::api::dialog::blocking::ask(
             Some(&window),
             "Starting over",
@@ -90,13 +76,9 @@ pub async fn start_over(app_handle: AppHandle, window: Window) {
     }
 }
 
-/// Sets the database file and restarts the application. Has blocking dialogs, so it cannot be run on the main thread.
-/// # Dialogs
-/// - Has a file dialog to select the database file
-/// - If the database file already exists, has a confirmation dialog before overwriting the database file
-/// - Has a message dialog if the database file could not be copied
+/// Sets the database file and restarts the application. Has dialogs.
 pub async fn choose_database(app_handle: AppHandle, window: Window) {
-    if let Some(old_database) = database_path(app_handle.clone()) {
+    if let Some(old_database) = Database::path(app_handle.clone()) {
         if !old_database.exists() || tauri::api::dialog::blocking::ask(
             Some(&window),
             "Set database",
@@ -119,9 +101,9 @@ pub async fn choose_database(app_handle: AppHandle, window: Window) {
     }
 }
 
-/// Exports the database file. Has blocking dialogs, so it cannot be run on the main thread.
+/// Exports the database file. Has dialog.
 pub async fn export_database(app_handle: AppHandle, window: Window) {
-    if let Some(source) = database_path(app_handle.clone()) {
+    if let Some(source) = Database::path(app_handle) {
         if let Some(destination) = tauri::api::dialog::blocking::FileDialogBuilder::new()
             .set_parent(&window)
             .set_title("Export database")

@@ -1,19 +1,58 @@
 mod convert;
 pub mod model;
+
+use super::*;
+use crate::database::model::value::ToSecretString;
 use model::*;
-use rusqlite::{params, Connection, Result};
+use rusqlite::{params, Connection, OptionalExtension, Result};
 use secrecy::{ExposeSecret, SecretString};
+use std::fs;
+use std::ops::Not;
+use std::path::PathBuf;
 use std::sync::Mutex;
 
+/// Name of the database file.
+pub const DATABASE_FILE_NAME: &str = "database.password_manager";
+
+/// Database for the application. It uses SQLite with SQLCipher.
 pub struct Database {
     connection: Mutex<Connection>,
 }
 
 impl Database {
-    pub fn open(path: &str, password: &str) -> Result<Database, &'static str> {
+    /// Returns full path to the database file based on the app local data directory.
+    /// Paths:
+    /// - macOS: ~/Library/Application Support/\<APPLICATION\>/[`DATABASE_FILE_NAME`]
+    /// - Linux:  ~/.local/share/\<APPLICATION\>/[`DATABASE_FILE_NAME`]
+    pub fn path(app_handle: AppHandle) -> Option<PathBuf> {
+        app_handle
+            .path_resolver()
+            .app_local_data_dir()
+            .map(|path_buf| path_buf.join(DATABASE_FILE_NAME))
+    }
+
+    /// Checks if the database file exists based on the app local data directory.
+    pub fn exists(app_handle: AppHandle) -> bool {
+        Database::path(app_handle)
+            .map(|path| path.exists())
+            .unwrap_or(false)
+    }
+
+    /// Opens database file. If the file does not exist, it will be created. Location of the file is based on the app local data directory.
+    /// # Errors
+    /// If database cannot be opened
+    pub fn open(password: &str, app_handle: AppHandle) -> Result<Database, &'static str> {
         if password.trim().is_empty() {
             return Err("Password can not be empty");
         }
+
+        let path = Database::path(app_handle).ok_or("Failed to get database path")?;
+        if path.exists().not() {
+            fs::create_dir_all(path.parent().ok_or("Failed to get data directory path")?)
+                .map_err(|_| "Failed to create data directory")?;
+        }
+        let path = path.to_str().ok_or("Path is not valid UTF-8")?;
+
         let Ok(connection) = Connection::open(path) else {
             return Err("Failed to open database");
         };
@@ -51,6 +90,11 @@ impl Database {
                             kind text not null,
                             value text not null,
                             foreign key (id_record) references Record(id_record) on update cascade on delete cascade
+                        );
+                        create table if not exists DataBreachCache (
+                            hash text primary key,
+                            exposed integer not null,
+                            checked datetime not null
                         );".to_string());
         connection
             .execute_batch(sql.expose_secret())
@@ -61,6 +105,9 @@ impl Database {
         })
     }
 
+    /// Changes the password for the database. It will re-encrypt the database with the new password.
+    /// # Errors
+    /// If the new password is empty or if the key cannot be changed.
     pub fn change_key(&self, new_password: &str) -> Result<(), &'static str> {
         if new_password.trim().is_empty() {
             return Err("Password can not be empty");
@@ -71,20 +118,6 @@ impl Database {
             .map_err(|_| "Failed to access database lock")?
             .execute_batch(sql.expose_secret())
             .map_err(|_| "Failed to set a new key")
-    }
-
-    pub fn get_record(&self, id_record: u64) -> Result<Record, &'static str> {
-        let sql = SecretString::new(
-            "SELECT id_record, title, subtitle, created, last_modified, category FROM Record WHERE id_record = ?1;".to_string());
-        let connection = self
-            .connection
-            .lock()
-            .map_err(|_| "Failed to access database lock")?;
-        let mut stmt = connection
-            .prepare(sql.expose_secret())
-            .map_err(|_| "Failed to prepare statement")?;
-        stmt.query_row(params![id_record], convert::row_to_record)
-            .map_err(|_| "Failed to get record")
     }
 
     pub fn get_content(&self, id_content: u64) -> Result<Content, &'static str> {
@@ -100,6 +133,7 @@ impl Database {
         stmt.query_row(params![id_content], convert::row_to_content)
             .map_err(|_| "Failed to get content")
     }
+
     pub fn get_all_records(&self) -> Result<Vec<Record>, &'static str> {
         let sql = SecretString::new(
             "SELECT id_record, title, subtitle, created, last_modified, category FROM Record;"
@@ -134,6 +168,8 @@ impl Database {
             .collect();
         result.map_err(|_| "Failed to get content")
     }
+
+    /// Saves a record to the database. Based on the id, it will insert or update the record. If the record is new, it will get an id.
     pub fn save_record(&self, record: &mut Record) -> Result<(), &'static str> {
         record.set_last_modified(chrono::Local::now());
         let title = record.title();
@@ -145,24 +181,26 @@ impl Database {
 
         let mut params =
             params![title, subtitle, created, last_modified, category, id_record].to_vec();
-        let sql = if id_record == 0 {
+        let sql = SecretString::new(if id_record == 0 {
             params.pop();
             "INSERT INTO Record (title, subtitle, created, last_modified, category) VALUES (?1, ?2, ?3, ?4, ?5);"
         } else {
             "UPDATE Record SET title = ?1, subtitle = ?2, created = ?3, last_modified = ?4, category = ?5 WHERE id_record = ?6;"
-        };
+        }.to_string());
         let connection = self
             .connection
             .lock()
             .map_err(|_| "Failed to access database lock")?;
         connection
-            .execute(sql, &*params)
+            .execute(sql.expose_secret(), &*params)
             .map_err(|_| "Failed to save record")?;
         if id_record == 0 {
             record.set_id(connection.last_insert_rowid() as u64);
         }
         Ok(())
     }
+
+    /// Saves content to the database. Based on the id, it will insert or update the content. If the content is new, it will get an id.
     pub fn save_content(&self, id_record: u64, content: &mut Content) -> Result<(), &'static str> {
         let label = content.label();
         let position = content.position();
@@ -172,25 +210,27 @@ impl Database {
         let value = secret_value.expose_secret();
         let id_content = content.id();
         let mut params = params![label, position, required, kind, value].to_vec();
-        let sql = if id_content == 0 {
+        let sql = SecretString::new(if id_content == 0 {
             params.append(&mut params![id_record].to_vec());
             "INSERT INTO Content (label, position, required, kind, value, id_record) VALUES (?1, ?2, ?3, ?4, ?5, ?6);"
         } else {
             params.append(&mut params![id_content].to_vec());
             "UPDATE Content SET label = ?1, position = ?2, required = ?3, kind = ?4, value = ?5 WHERE id_content = ?6;"
-        };
+        }.to_string());
         let connection = self
             .connection
             .lock()
             .map_err(|_| "Failed to access database lock")?;
         connection
-            .execute(sql, &*params)
+            .execute(sql.expose_secret(), &*params)
             .map_err(|_| "Failed to save content")?;
         if id_content == 0 {
             content.set_id(connection.last_insert_rowid() as u64);
         }
         Ok(())
     }
+
+    /// Deletes a record from the database. It will also delete all content for the record.
     pub fn delete_record(&self, record: Record) -> Result<(), &'static str> {
         let mut connection = self
             .connection
@@ -228,10 +268,51 @@ impl Database {
             .commit()
             .map_err(|_| "Failed to commit transaction")
     }
-}
 
-//TODO Tests
-#[cfg(test)]
-mod tests {
-    use super::*;
+    /// To add password hash breach status to the cache.
+    pub fn add_data_breach_cache(&self, hash: &str, exposed: bool) -> Result<(), &'static str> {
+        let sql = SecretString::new(
+            "REPLACE INTO DataBreachCache (hash, exposed, checked) VALUES (?1, ?2, datetime('now'));"
+                .to_string(),
+        );
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| "Failed to access database lock")?;
+        connection
+            .execute(sql.expose_secret(), params![hash, exposed])
+            .map_err(|_| "Failed to save content")?;
+        Ok(())
+    }
+
+    /// Deletes all password hash breach status older than 24 hours.
+    pub fn delete_data_breach_cache_older_24h(&self) -> Result<(), &'static str> {
+        let sql = SecretString::new(
+            "DELETE FROM DataBreachCache WHERE checked < datetime('now', '-1 day');".to_string(),
+        );
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| "Failed to access database lock")?;
+        connection
+            .execute(sql.expose_secret(), [])
+            .map_err(|_| "Failed to delete old breach status")?;
+        Ok(())
+    }
+
+    /// Based on the hash, it returns the breach status from the cache.
+    pub fn get_data_breach_status(&self, hash: &str) -> Result<Option<bool>, &'static str> {
+        let sql =
+            SecretString::new("SELECT exposed FROM DataBreachCache WHERE hash = ?1;".to_string());
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| "Failed to access database lock")?;
+        let mut stmt = connection
+            .prepare(sql.expose_secret())
+            .map_err(|_| "Failed to prepare statement")?;
+        stmt.query_row(params![hash], |row| row.get(0))
+            .optional()
+            .map_err(|_| "Failed to get breach status")
+    }
 }

@@ -1,58 +1,32 @@
-mod command;
-mod event;
-mod menu;
-mod window;
-
-pub use command::*;
-pub use event::*;
-pub use menu::*;
 use std::collections::HashMap;
-pub use window::*;
-
-use super::*;
-use crate::database::Database;
-use secrecy::{ExposeSecret, Secret, SecretString};
-use std::fs;
-use std::ops::Not;
-use std::path::PathBuf;
 use std::sync::Mutex;
-use tauri::{AppHandle, State, Window};
 use totp_rs::{Rfc6238, TOTP};
 
-/// Name of the database file.
-pub const DATABASE_FILE_NAME: &str = "database.password_manager";
-
-/// Returns full path to the database file based on the app local data directory.
-/// Paths:
-/// - macOS: ~/Library/Application Support/\<APPLICATION\>/[`DATABASE_FILE_NAME`]
-/// - Linux:  ~/.local/share/\<APPLICATION\>/[`DATABASE_FILE_NAME`]
-pub fn database_path(app_handle: AppHandle) -> Option<PathBuf> {
-    app_handle
-        .path_resolver()
-        .app_local_data_dir()
-        .map(|path_buf| path_buf.join(DATABASE_FILE_NAME))
-}
-
-/// Checks if the database file exists.
-pub fn database_exists(app_handle: AppHandle) -> bool {
-    if let Some(path) = database_path(app_handle) {
-        return path.exists();
-    }
-
-    false
-}
-
 /// TOTP manager for tauri state. Used for managing TOTP secrets and generating codes.
-#[derive(Default)]
 pub struct TOTPManager {
     hash_map: Mutex<HashMap<u64, TOTP>>,
 }
 
 impl TOTPManager {
-    /// Adds a new TOTP secret to the manager.
-    /// # Error
+    /// Creates a new TOTP manager with the given size. Size is used for pre-allocating the hashmap to avoid re-allocations.
+    pub fn new(size: usize) -> Self {
+        TOTPManager {
+            hash_map: Mutex::new(HashMap::with_capacity(size)),
+        }
+    }
+    /// Adds a new TOTP secret to the manager. It takes a constant id and a totp secret
+    /// # Errors
     /// Returns an error if the secret is invalid or if the manager mutex is poisoned.
     pub fn add_secret(&self, id: u64, secret: String) -> Result<(), &'static str> {
+        let mut guard = self
+            .hash_map
+            .lock()
+            .map_err(|_| "Failed to access manager lock")?;
+
+        if guard.capacity() == guard.len() {
+            return Err("TOTP Manager is full");
+        }
+
         let Ok(secret) = totp_rs::Secret::Encoded(secret).to_bytes() else {
             return Err("Invalid OTP Secret");
         };
@@ -63,10 +37,6 @@ impl TOTPManager {
             return Err("Invalid OTP Secret");
         };
 
-        let mut guard = self
-            .hash_map
-            .lock()
-            .map_err(|_| "Failed to access manager lock")?;
         guard.insert(id, totp);
         Ok(())
     }
@@ -82,10 +52,10 @@ impl TOTPManager {
         Some((current, ttl))
     }
 
-    /// Removes a TOTP secret from the manager.
-    pub fn remove(&self, id: &u64) {
+    /// Removes a TOTP secrets from the manager.
+    pub fn reset(&self) {
         if let Ok(mut guard) = self.hash_map.lock() {
-            guard.remove(id);
+            guard.clear();
         }
     }
 }

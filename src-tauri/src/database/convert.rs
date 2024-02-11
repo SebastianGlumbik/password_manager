@@ -1,3 +1,4 @@
+use super::model::value::*;
 use super::model::*;
 use rusqlite::{Error, Result, Row};
 use zeroize::Zeroize;
@@ -126,6 +127,7 @@ pub fn row_to_content(row: &Row) -> Result<Content> {
         }
     };
 
+    kind.zeroize();
     let mut content = Content::new(label, position, required, value);
     content.set_id(id);
 

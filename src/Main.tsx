@@ -23,7 +23,7 @@ import {listen, UnlistenFn} from "@tauri-apps/api/event";
 import Settings from "./Settings.tsx";
 
 /**
- * Main page. This is where all the magic happens.
+ * Main page. Divided into two parts: the list of records and the record detail.
  * @return {JSX.Element} - Div containing the main page.
  */
 export default function Main(): JSX.Element {
@@ -48,10 +48,8 @@ export default function Main(): JSX.Element {
                 return false;
             }
         }
-        if (selection !== selected()){
-            setEdit(false);
-            setSelected(selection);
-        }
+        setEdit(false);
+        setSelected(selection);
         return true;
     }
 
@@ -68,7 +66,7 @@ export default function Main(): JSX.Element {
         });
     });
 
-    onCleanup(async () => {
+    onCleanup( () => {
         if (unlistenNewRecord)
             unlistenNewRecord();
 

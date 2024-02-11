@@ -1,5 +1,5 @@
 import {Content, KindSVG, Record, editSignal} from "./Model.tsx";
-import {createResource, createSignal, For, JSX, Match, onCleanup, Show, Switch} from "solid-js";
+import {createEffect, createResource, createSignal, For, JSX, Match, onCleanup, Show, Switch} from "solid-js";
 import {invoke} from "@tauri-apps/api/tauri";
 import GetSVG from "./GetSVG.tsx";
 import { writeText } from '@tauri-apps/api/clipboard';
@@ -35,6 +35,11 @@ export default function RecordDetail({record,refresh}: {record: () => Record, re
     const [edit, setEdit] = editSignal;
     const [error, setError] = createSignal("");
 
+    createEffect(() => {
+        record()
+        setError("");
+    });
+
     return (
         <div id="record-detail" class="m-10 flex justify-center">
             <form class="grid grid-cols-1 min-h-full w-full max-w-6xl rounded-md border border-[#E7E7E7] dark:border-[#3A3A3A] bg-[#F2F2F2] dark:bg-[#2B2B2B]" onSubmit={async (event) => {
@@ -68,6 +73,12 @@ export default function RecordDetail({record,refresh}: {record: () => Record, re
                                }}
                                onClick={async () => {
                                    if (!edit()) await copyTextToClipboard(record().title)
+                               }}
+                               onContextMenu={async (e) => {
+                                   if (!edit()) {
+                                       e.preventDefault();
+                                       await copyTextToClipboard(record().title)
+                                   }
                                }}>
                         </input>
                         <input type="text" class="bg-inherit border-none truncate text-left text-[14px] w-full invalid:text-red-500 read-only:cursor-pointer read-only:hover:text-[#0064E1] read-only:select-none" value={record().subtitle} placeholder="Subtitle" readOnly={!edit()} required
@@ -80,6 +91,12 @@ export default function RecordDetail({record,refresh}: {record: () => Record, re
                                }}
                                onClick={async () => {
                                    if (!edit()) await copyTextToClipboard(record().subtitle)
+                               }}
+                               onContextMenu={async (e) => {
+                                   if (!edit()) {
+                                       e.preventDefault();
+                                       await copyTextToClipboard(record().title)
+                                   }
                                }}>
                         </input>
                         <div class="flex flex-row justify-between items-center w-full">
@@ -152,12 +169,12 @@ export default function RecordDetail({record,refresh}: {record: () => Record, re
                                 </Show>
                                 <ContentValue content={content}/>
                             </div>
-                            <Show when={(index() < (allContent()?.length as number - 1)) || edit()}>
+                            <Show when={(index() < (allContent()?.length as number - 1)) || (edit() && allContent()?.length! < 50)}>
                                 <div class="my-1 w-full h-px bg-[#E7E7E7] dark:bg-[#3A3A3A]"></div>
                             </Show>
                         </>
                     }</For>
-                    <Show when={edit()}>
+                    <Show when={edit() && allContent()?.length! < 50}>
                         <div class="flex justify-center w-full">
                             <button class="py-1" title="Add new content" onClick={async (event) => {
                                 event.preventDefault();
@@ -304,12 +321,12 @@ function ContentValue({content}: {content: Content}): JSX.Element {
         case "Password": {
             placeholder = "Password";
             if(content.id !== undefined && content.id !== 0) {
-                invoke("check_password",{id: content.id as number}).then((value) => {
+                invoke("check_password_from_database",{id: content.id as number}).then((value) => {
                     if (value === "Common"){
-                        setError("This password is too common.");
+                        setError("Too common");
                     }
                     else if (value === "Exposed"){
-                        setError("This password has been exposed in a data breach.");
+                        setError("Exposed in a data breach.\nsource: haveibeenpwned.com");
                     }
                     else{
                         setError("");
@@ -333,7 +350,7 @@ function ContentValue({content}: {content: Content}): JSX.Element {
             break;
         }
         case "Url": {
-            placeholder = "Url, e.g. https://example.com";
+            placeholder = "Url (https://example.com)";
             break;
         }
         case "Email": {
@@ -341,11 +358,11 @@ function ContentValue({content}: {content: Content}): JSX.Element {
             break;
         }
         case "PhoneNumber": {
-            placeholder = "International phone number, e.g. +420xxxxxxxxx";
+            placeholder = "International phone number (+420xxxxxxxxx)";
             break;
         }
         case "BankCardNumber": {
-            placeholder = "Enter bank card number";
+            placeholder = "Bank card number";
             if (content.id !== undefined && content.id !== 0) {
                 invoke("card_type",{id: content.id as number}).then((value) => setCardType(value as string)).catch(_ => _);
             }
@@ -389,11 +406,24 @@ function ContentValue({content}: {content: Content}): JSX.Element {
                     }}
                     onClick={async () => {
                         if (!edit()) await copyTextToClipboard(content.label)
-                    }}>
+                    }}
+                   onContextMenu={async (e) => {
+                       if (!edit()) {
+                           e.preventDefault();
+                           await copyTextToClipboard(content.label)
+                       }
+                   }}>
             </input>
-            <div class={`flex flex-row w-full ${edit() ? "": "hover:text-[#0064E1] cursor-pointer"}`} onClick={async () => {
-                if (!edit()) await copyValueToClipboard(content.id as number,content.label)
-            }}>
+            <div class={`flex flex-row w-full ${edit() ? "": "hover:text-[#0064E1] cursor-pointer"}`}
+                 onClick={async () => {
+                     if (!edit()) await copyValueToClipboard(content.id as number,content.label)
+                 }}
+                 onContextMenu={async (e) => {
+                     if (!edit()) {
+                         e.preventDefault();
+                         await copyValueToClipboard(content.id as number,content.label)
+                     }
+                 }}>
                 <Show when={content.kind == "BankCardNumber"}>
                     <div>{cardType()}</div>
                 </Show>
@@ -405,11 +435,14 @@ function ContentValue({content}: {content: Content}): JSX.Element {
                                  value={value.latest} placeholder={placeholder} readOnly={!edit()} required
                                  onInput={async (event) => {
                                      content.value = event.target.value
-                                     let [valid, error]: [boolean, string?] = await invoke("valid", {
+                                     let error: string | null = await invoke("validate", {
                                          kind: content.kind,
                                          value: content.value
                                      });
-                                     if (valid) {
+                                     console.log(error);
+                                     if (error) {
+                                         event.target.setCustomValidity(error);
+                                     } else {
                                          event.target.setCustomValidity("");
                                          setError("");
                                          if (content.kind == "BankCardNumber") {
@@ -418,10 +451,6 @@ function ContentValue({content}: {content: Content}): JSX.Element {
                                          if (content.kind == "Password") {
                                              setPasswordStrength(await invoke("password_strength", {password: content.value}) as number);
                                          }
-                                     } else if (error) {
-                                         event.target.setCustomValidity(error);
-                                     } else {
-                                         event.target.setCustomValidity("Invalid value");
                                      }
                                  }}
                                  onInvalid={(event) => {
@@ -491,7 +520,7 @@ function ContentValue({content}: {content: Content}): JSX.Element {
                     </Switch>
                 </div>
             </div>
-            <p class="flex justify-center text-[14px] truncate text-red-500 w-full" hidden={error().length == 0}>{error()}</p>
+            <p class="flex justify-center text-center text-[14px] truncate text-red-500 w-full whitespace-break-spaces" hidden={error().length == 0}>{error()}</p>
         </div>
     )
 }

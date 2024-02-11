@@ -7,17 +7,14 @@ import Main from './Main.tsx';
 import Loading from "./Loading.tsx";
 import "./style.css"
 
-
 /**
  * Prevents the context menu from appearing on right-click on the whole app, except for input fields.
  */
-
 window.addEventListener('contextmenu', function(event) {
     if(!(event.target instanceof HTMLInputElement)) {
         event.preventDefault();
     }
 });
-
 
 /**
  * Main App component. Based on backend response, it renders the login, register or main page.

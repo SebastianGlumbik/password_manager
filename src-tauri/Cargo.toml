@@ -1,6 +1,6 @@
 [package]
 name = "password_manager"
-version = "0.8.0"
+version = "1.0.0"
 description = "Password manager for bachelor thesis"
 authors = ["Sebastian Glumbík"]
 readme = "../README.md"
@@ -31,6 +31,7 @@ reqwest = "0.11.24"
 tokio = { version = "1.36.0", features = ["full"] }
 card-validate = "2.3.0"
 anyhow = "1.0.79"
+ssh2 = "0.9.4"
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem

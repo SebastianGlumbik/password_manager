@@ -8,13 +8,13 @@ use tauri::WindowBuilder;
 /// Creates login window with specific menu ([create_login_menu]).
 /// # Errors
 /// Returns an error if the window cannot be created. It will **not** return an error if the window already exists.
-pub fn create_login_window(app_handle: AppHandle) -> tauri::Result<()> {
+pub fn create_login_window(app_handle: &AppHandle) -> tauri::Result<()> {
     if app_handle.get_window("login").is_some() {
         return Ok(());
     }
 
     let window = WindowBuilder::new(
-        &app_handle,
+        app_handle,
         "login",
         tauri::WindowUrl::App("index.html".into()),
     )
@@ -30,6 +30,7 @@ pub fn create_login_window(app_handle: AppHandle) -> tauri::Result<()> {
     let window = window.build()?;
 
     let window_clone = window.clone();
+    let app_handle = app_handle.clone();
     window.on_menu_event(move |event| {
         menu_event(event, app_handle.clone(), window_clone.clone());
     });
@@ -40,13 +41,13 @@ pub fn create_login_window(app_handle: AppHandle) -> tauri::Result<()> {
 /// Creates register window with specific menu ([create_register_menu]).
 /// # Errors
 /// Returns an error if the window cannot be created. It will **not** return an error if the window already exists.
-pub fn create_register_window(app_handle: AppHandle) -> tauri::Result<()> {
+pub fn create_register_window(app_handle: &AppHandle) -> tauri::Result<()> {
     if app_handle.get_window("register").is_some() {
         return Ok(());
     }
 
     let window = WindowBuilder::new(
-        &app_handle,
+        app_handle,
         "register",
         tauri::WindowUrl::App("index.html".into()),
     )
@@ -64,6 +65,7 @@ pub fn create_register_window(app_handle: AppHandle) -> tauri::Result<()> {
     let window = window.build()?;
 
     let window_clone = window.clone();
+    let app_handle = app_handle.clone();
     window.on_menu_event(move |event| {
         menu_event(event, app_handle.clone(), window_clone.clone());
     });
@@ -74,13 +76,13 @@ pub fn create_register_window(app_handle: AppHandle) -> tauri::Result<()> {
 /// Creates main window with specific menu ([create_main_menu]).
 /// # Errors
 /// Returns an error if the window cannot be created. It will **not** return an error if the window already exists.
-pub fn create_main_window(app_handle: AppHandle) -> tauri::Result<()> {
+pub fn create_main_window(app_handle: &AppHandle) -> tauri::Result<()> {
     if app_handle.get_window("main").is_some() {
         return Ok(());
     }
 
     let window = WindowBuilder::new(
-        &app_handle,
+        app_handle,
         "main",
         tauri::WindowUrl::App("index.html".into()),
     )
@@ -96,6 +98,7 @@ pub fn create_main_window(app_handle: AppHandle) -> tauri::Result<()> {
     let window = window.build()?;
 
     let window_clone = window.clone();
+    let app_handle = app_handle.clone();
     window.on_menu_event(move |event| {
         menu_event(event, app_handle.clone(), window_clone.clone());
     });

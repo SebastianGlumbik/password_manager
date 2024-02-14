@@ -1,8 +1,48 @@
 pub mod value;
+
 use super::*;
-use serde::{Deserialize, Serialize};
+use rusqlite::types::FromSql;
+use serde::{Deserialize, Serialize, Serializer};
+use std::str::FromStr;
 use value::*;
 use zeroize::{Zeroize, ZeroizeOnDrop};
+
+/// Secret string with Serialize and Sqlite support
+#[derive(Debug, Clone, Deserialize)]
+pub struct SecretValue(SecretString);
+
+impl SecretValue {
+    pub fn new(secret: SecretString) -> SecretValue {
+        SecretValue(secret)
+    }
+
+    pub fn expose_secret(&self) -> &str {
+        self.0.expose_secret()
+    }
+}
+
+impl FromStr for SecretValue {
+    type Err = core::convert::Infallible;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        Ok(SecretValue(SecretString::from_str(s)?))
+    }
+}
+
+impl Serialize for SecretValue {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(self.expose_secret())
+    }
+}
+
+impl FromSql for SecretValue {
+    fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
+        Ok(SecretValue(SecretString::new(value.as_str()?.to_string())))
+    }
+}
 
 /// Record category
 #[derive(Debug, PartialEq, Clone, Zeroize, ZeroizeOnDrop, Serialize, Deserialize)]

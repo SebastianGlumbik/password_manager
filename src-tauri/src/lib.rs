@@ -1,3 +1,4 @@
+mod cloud;
 mod command;
 mod database;
 mod totp;
@@ -17,12 +18,15 @@ use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 use totp::TOTPManager;
 
 /// Shows a critical error message and restarts the application.
-fn critical_error(message: &str, app_handle: AppHandle, window: Window) {
-    tauri::api::dialog::blocking::message(
-        Some(&window),
+fn critical_error(message: &str, app_handle: &AppHandle, window: &Window) {
+    tauri::api::dialog::blocking::MessageDialogBuilder::new(
         "Critical Error",
         format!("{}\nApplication will now restart", message),
-    );
+    )
+    .kind(tauri::api::dialog::MessageDialogKind::Error)
+    .buttons(tauri::api::dialog::MessageDialogButtons::Ok)
+    .parent(window)
+    .show();
     app_handle.restart();
 }
 
@@ -55,20 +59,24 @@ pub fn run() -> anyhow::Result<()> {
             change_password,
             get_all_records,
             get_compromised_records,
-            save_record,
-            delete_record,
             get_all_content_for_record,
             get_content_value,
+            save_record,
+            delete_record,
             delete_content,
             get_totp_code,
-            validate,
-            password_strength,
+            copy_value_to_clipboard,
             check_password,
             check_password_from_database,
-            copy_value_to_clipboard,
-            card_type,
+            password_strength,
             generate_password,
-            cloud
+            validate,
+            card_type,
+            cloud_data,
+            enable_cloud,
+            disable_cloud,
+            cloud_upload,
+            cloud_download,
         ]);
 
     #[cfg(target_os = "macos")]

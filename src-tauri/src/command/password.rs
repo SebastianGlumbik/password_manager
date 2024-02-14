@@ -1,4 +1,5 @@
 use super::*;
+use crate::database::model::SecretValue;
 use sha1::digest::generic_array::functional::FunctionalSequence;
 use sha1::{Digest, Sha1};
 use tokio::sync::Semaphore;
@@ -108,7 +109,7 @@ pub async fn generate_password<'a>(
     lowercase_letters: bool,
     symbols: bool,
 ) -> Result<SecretValue, &'static str> {
-    Ok(SecretValue(SecretString::new(
+    Ok(SecretValue::new(SecretString::new(
         passwords::PasswordGenerator {
             length,
             numbers,

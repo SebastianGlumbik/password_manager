@@ -1,0 +1,43 @@
+{
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devPath": "http://localhost:1420",
+    "distDir": "../dist"
+  },
+  "package": {
+    "productName": "Password Manager"
+  },
+  "tauri": {
+    "allowlist": {
+      "clipboard": {
+        "writeText": true
+      },
+      "dialog": {
+        "message": true,
+        "confirm": true
+      }
+    },
+    "bundle": {
+      "active": true,
+      "targets": "all",
+      "identifier": "cz.vsb.PasswordManager",
+      "icon": [
+        "icons/32x32.png",
+        "icons/128x128.png",
+        "icons/128x128@2x.png",
+        "icons/icon.icns",
+        "icons/icon.ico"
+      ],
+      "category": "Utility",
+      "shortDescription": "Password Manager",
+      "longDescription": "Password manager for bachelor thesis",
+      "macOS": {
+        "minimumSystemVersion": "10.15"
+      }
+    },
+    "security": {
+      "csp": "default-src 'self'"
+    }
+  }
+}

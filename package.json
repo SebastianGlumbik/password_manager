@@ -1,0 +1,30 @@
+{
+  "name": "password_manager",
+  "private": true,
+  "version": "0.8.0",
+  "type": "module",
+  "scripts": {
+    "start": "vite",
+    "dev": "vite",
+    "build": "vite build",
+    "serve": "vite preview",
+    "tauri": "tauri"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@tauri-apps/api": "^1.5.3",
+    "@types/node": "^20.11.0",
+    "solid-js": "^1.7.8",
+    "tauri-plugin-context-menu": "^0.7.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^1.5.9",
+    "autoprefixer": "^10.4.16",
+    "daisyui": "^4.6.1",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.3.5",
+    "typescript": "^5.3.3",
+    "vite": "^5.1.0",
+    "vite-plugin-solid": "^2.8.0"
+  }
+}

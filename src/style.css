@@ -1,0 +1,136 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Roboto Font */
+@font-face {
+  font-family: 'Roboto';
+  src: url('assets/Roboto/Roboto-Thin.ttf') format('truetype');
+  font-weight: 100;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Roboto';
+  src: url('assets/Roboto/Roboto-ThinItalic.ttf') format('truetype');
+  font-weight: 100;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: 'Roboto';
+  src: url('assets/Roboto/Roboto-Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Roboto';
+  src: url('assets/Roboto/Roboto-LightItalic.ttf') format('truetype');
+  font-weight: 300;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: 'Roboto';
+  src: url('assets/Roboto/Roboto-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Roboto';
+  src: url('assets/Roboto/Roboto-Italic.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: 'Roboto';
+  src: url('assets/Roboto/Roboto-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Roboto';
+  src: url('assets/Roboto/Roboto-MediumItalic.ttf') format('truetype');
+  font-weight: 500;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: 'Roboto';
+  src: url('assets/Roboto/Roboto-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Roboto';
+  src: url('assets/Roboto/Roboto-BoldItalic.ttf') format('truetype');
+  font-weight: 700;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: 'Roboto';
+  src: url('assets/Roboto/Roboto-Black.ttf') format('truetype');
+  font-weight: 900;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Roboto';
+  src: url('assets/Roboto/Roboto-BlackItalic.ttf') format('truetype');
+  font-weight: 900;
+  font-style: italic;
+}
+
+body, #root {
+  @apply m-0;
+  @apply bg-[#F6F6F6] dark:bg-[#282828];
+  @apply h-screen;
+  @apply text-[#252525] dark:text-[#E9E9E9];
+  @apply text-[16px];
+  @apply select-none cursor-default overflow-hidden selection:bg-blue-200;
+  font-family: "Roboto", sans-serif;
+}
+
+a {
+  @apply text-[#3578F7];
+  @apply hover:underline;
+}
+
+svg {
+  @apply fill-[#252525] dark:fill-[#E9E9E9];
+}
+
+input, span, textarea {
+  @apply bg-[#DADADA] dark:bg-[#414141];
+  @apply placeholder:text-[#828282] dark:placeholder:text-[#9F9F9F];
+  @apply appearance-none outline outline-transparent;
+}
+
+/* Chrome, Safari, Edge, Opera */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
+.range {
+  --range-shdw: #0064E1;
+}
+
+.range::-webkit-slider-runnable-track {
+  @apply bg-[#DADADA] dark:bg-[#414141] rounded-full;
+}
+.range::-moz-range-track {
+  @apply bg-[#DADADA] dark:bg-[#414141] rounded-full;
+}

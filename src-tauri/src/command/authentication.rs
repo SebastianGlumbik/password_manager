@@ -1,4 +1,5 @@
 use super::*;
+use crate::cloud;
 
 /// Register process. Database must not exist. Adds the database to the app state, initializes the main window and closes the current window.
 /// # Restart
@@ -10,8 +11,8 @@ pub async fn register<'a>(
     app_handle: AppHandle,
     window: Window,
 ) -> Result<(), &'static str> {
-    if Database::exists(app_handle.clone()) {
-        critical_error("Database already exists", app_handle, window);
+    if Database::exists(&app_handle) {
+        critical_error("Database already exists", &app_handle, &window);
         return Err("Database already exists");
     }
 
@@ -19,10 +20,7 @@ pub async fn register<'a>(
         return Err("Passwords do not match.");
     }
 
-    app_handle.manage(Database::open(
-        password.expose_secret(),
-        app_handle.clone(),
-    )?);
+    app_handle.manage(Database::open(password.expose_secret(), &app_handle)?);
 
     #[cfg(target_os = "macos")]
     app_handle
@@ -40,7 +38,7 @@ pub async fn register<'a>(
     Ok(())
 }
 
-/// Login process. Database must exist. Adds the database to the app state, initializes the main window and closes the current window.
+/// Login process. Database must exist. If cloud storage is enabled, it tries to download the database from the cloud. Adds the database to the app state, initializes the main window and closes the current window.
 /// # Restart
 /// Restarts the application if the database does not exist. Error is shown in a blocking dialog.
 #[tauri::command]
@@ -49,20 +47,30 @@ pub async fn login<'a>(
     app_handle: AppHandle,
     window: Window,
 ) -> Result<(), &'static str> {
-    if Database::exists(app_handle.clone()).not() {
-        critical_error("Database does not exist", app_handle, window);
+    if Database::exists(&app_handle).not() {
+        critical_error("Database does not exist", &app_handle, &window);
         return Err("Database does not exist");
     }
 
-    app_handle.manage(Database::open(
-        password.expose_secret(),
-        app_handle.clone(),
-    )?);
+    let mut database = Database::open(password.expose_secret(), &app_handle)?;
 
-    app_handle
-        .try_state::<Database>()
-        .ok_or("Failed to get database")?
-        .delete_data_breach_cache_older_24h()?;
+    if let Err(error) = cloud::download(&window, &app_handle, &database).await {
+        if tauri::api::dialog::blocking::ask(
+            Some(&window),
+            error,
+            "Do you wish to continue without cloud storage?",
+        )
+        .not()
+        {
+            return Err(error);
+        }
+    }
+
+    database = Database::open(password.expose_secret(), &app_handle)?;
+
+    database.delete_data_breach_cache_older_24h()?;
+
+    app_handle.manage(database);
 
     #[cfg(target_os = "macos")]
     app_handle

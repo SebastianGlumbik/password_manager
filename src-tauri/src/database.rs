@@ -24,7 +24,7 @@ impl Database {
     /// Paths:
     /// - macOS: ~/Library/Application Support/\<APPLICATION\>/[`DATABASE_FILE_NAME`]
     /// - Linux:  ~/.local/share/\<APPLICATION\>/[`DATABASE_FILE_NAME`]
-    pub fn path(app_handle: AppHandle) -> Option<PathBuf> {
+    pub fn path(app_handle: &AppHandle) -> Option<PathBuf> {
         app_handle
             .path_resolver()
             .app_local_data_dir()
@@ -32,7 +32,7 @@ impl Database {
     }
 
     /// Checks if the database file exists based on the app local data directory.
-    pub fn exists(app_handle: AppHandle) -> bool {
+    pub fn exists(app_handle: &AppHandle) -> bool {
         Database::path(app_handle)
             .map(|path| path.exists())
             .unwrap_or(false)
@@ -41,7 +41,7 @@ impl Database {
     /// Opens database file. If the file does not exist, it will be created. Location of the file is based on the app local data directory.
     /// # Errors
     /// If database cannot be opened
-    pub fn open(password: &str, app_handle: AppHandle) -> Result<Database, &'static str> {
+    pub fn open(password: &str, app_handle: &AppHandle) -> Result<Database, &'static str> {
         if password.trim().is_empty() {
             return Err("Password can not be empty");
         }
@@ -72,8 +72,12 @@ impl Database {
             .execute_batch(sql.expose_secret())
             .map_err(|_| "Failed to enable memory security")?;
 
-        let sql = SecretString::new(
-                        "create table if not exists Record (
+        let sql = SecretString::new("
+                        create table if not exists Settings (
+                            name text primary key,
+                            value text not null
+                        );
+                        create table if not exists Record (
                             id_record integer primary key,
                             title text not null,
                             subtitle text not null,
@@ -95,7 +99,8 @@ impl Database {
                             hash text primary key,
                             exposed integer not null,
                             checked datetime not null
-                        );".to_string());
+                        );
+                        ".to_string());
         connection
             .execute_batch(sql.expose_secret())
             .map_err(|_| "Failed to create database")?;
@@ -118,6 +123,19 @@ impl Database {
             .map_err(|_| "Failed to access database lock")?
             .execute_batch(sql.expose_secret())
             .map_err(|_| "Failed to set a new key")
+    }
+
+    pub fn get_setting(&self, name: &str) -> Result<SecretValue, &'static str> {
+        let sql = SecretString::new("SELECT value FROM Settings WHERE name = ?1;".to_string());
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| "Failed to access database lock")?;
+        let mut stmt = connection
+            .prepare(sql.expose_secret())
+            .map_err(|_| "Failed to prepare statement")?;
+        stmt.query_row(params![name], |row| row.get(0))
+            .map_err(|_| "Failed to get setting")
     }
 
     pub fn get_content(&self, id_content: u64) -> Result<Content, &'static str> {
@@ -167,6 +185,35 @@ impl Database {
             .map_err(|_| "Failed to map content")?
             .collect();
         result.map_err(|_| "Failed to get content")
+    }
+
+    /// Based on the hash, it returns the breach status from the cache.
+    pub fn get_data_breach_status(&self, hash: &str) -> Result<Option<bool>, &'static str> {
+        let sql =
+            SecretString::new("SELECT exposed FROM DataBreachCache WHERE hash = ?1;".to_string());
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| "Failed to access database lock")?;
+        let mut stmt = connection
+            .prepare(sql.expose_secret())
+            .map_err(|_| "Failed to prepare statement")?;
+        stmt.query_row(params![hash], |row| row.get(0))
+            .optional()
+            .map_err(|_| "Failed to get breach status")
+    }
+
+    pub fn save_setting(&self, name: &str, value: &str) -> Result<(), &'static str> {
+        let sql =
+            SecretString::new("REPLACE INTO Settings (name, value) VALUES (?1, ?2);".to_string());
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| "Failed to access database lock")?;
+        connection
+            .execute(sql.expose_secret(), params![name, value])
+            .map_err(|_| "Failed to save setting")?;
+        Ok(())
     }
 
     /// Saves a record to the database. Based on the id, it will insert or update the record. If the record is new, it will get an id.
@@ -230,6 +277,34 @@ impl Database {
         Ok(())
     }
 
+    /// To add password hash breach status to the cache.
+    pub fn add_data_breach_cache(&self, hash: &str, exposed: bool) -> Result<(), &'static str> {
+        let sql = SecretString::new(
+            "REPLACE INTO DataBreachCache (hash, exposed, checked) VALUES (?1, ?2, datetime('now'));"
+                .to_string(),
+        );
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| "Failed to access database lock")?;
+        connection
+            .execute(sql.expose_secret(), params![hash, exposed])
+            .map_err(|_| "Failed to save content")?;
+        Ok(())
+    }
+
+    pub fn delete_setting(&self, name: &str) -> Result<(), &'static str> {
+        let sql = SecretString::new("DELETE FROM Settings WHERE name = ?1;".to_string());
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| "Failed to access database lock")?;
+        connection
+            .execute(sql.expose_secret(), params![name])
+            .map_err(|_| "Failed to delete setting")?;
+        Ok(())
+    }
+
     /// Deletes a record from the database. It will also delete all content for the record.
     pub fn delete_record(&self, record: Record) -> Result<(), &'static str> {
         let mut connection = self
@@ -269,22 +344,6 @@ impl Database {
             .map_err(|_| "Failed to commit transaction")
     }
 
-    /// To add password hash breach status to the cache.
-    pub fn add_data_breach_cache(&self, hash: &str, exposed: bool) -> Result<(), &'static str> {
-        let sql = SecretString::new(
-            "REPLACE INTO DataBreachCache (hash, exposed, checked) VALUES (?1, ?2, datetime('now'));"
-                .to_string(),
-        );
-        let connection = self
-            .connection
-            .lock()
-            .map_err(|_| "Failed to access database lock")?;
-        connection
-            .execute(sql.expose_secret(), params![hash, exposed])
-            .map_err(|_| "Failed to save content")?;
-        Ok(())
-    }
-
     /// Deletes all password hash breach status older than 24 hours.
     pub fn delete_data_breach_cache_older_24h(&self) -> Result<(), &'static str> {
         let sql = SecretString::new(
@@ -298,21 +357,5 @@ impl Database {
             .execute(sql.expose_secret(), [])
             .map_err(|_| "Failed to delete old breach status")?;
         Ok(())
-    }
-
-    /// Based on the hash, it returns the breach status from the cache.
-    pub fn get_data_breach_status(&self, hash: &str) -> Result<Option<bool>, &'static str> {
-        let sql =
-            SecretString::new("SELECT exposed FROM DataBreachCache WHERE hash = ?1;".to_string());
-        let connection = self
-            .connection
-            .lock()
-            .map_err(|_| "Failed to access database lock")?;
-        let mut stmt = connection
-            .prepare(sql.expose_secret())
-            .map_err(|_| "Failed to prepare statement")?;
-        stmt.query_row(params![hash], |row| row.get(0))
-            .optional()
-            .map_err(|_| "Failed to get breach status")
     }
 }

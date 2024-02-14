@@ -54,19 +54,20 @@ pub async fn login<'a>(
 
     let mut database = Database::open(password.expose_secret(), &app_handle)?;
 
-    if let Err(error) = cloud::download(&window, &app_handle, &database).await {
-        if tauri::api::dialog::blocking::ask(
-            Some(&window),
-            error,
-            "Do you wish to continue without cloud storage?",
-        )
-        .not()
-        {
-            return Err(error);
+    if cloud::is_enabled(&database) {
+        if let Err(error) = cloud::download(&window, &app_handle, &database).await {
+            if tauri::api::dialog::blocking::ask(
+                Some(&window),
+                error,
+                "Do you wish to continue without cloud storage?",
+            )
+            .not()
+            {
+                return Err(error);
+            }
         }
+        database = Database::open(password.expose_secret(), &app_handle)?;
     }
-
-    database = Database::open(password.expose_secret(), &app_handle)?;
 
     database.delete_data_breach_cache_older_24h()?;
 

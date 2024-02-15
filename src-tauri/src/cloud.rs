@@ -147,8 +147,7 @@ pub async fn upload<'a>(
 
         let backup_path =
             PathBuf::from(cloud_folder).join(format!("{}.backup", DATABASE_FILE_NAME));
-        sftp.unlink(backup_path.as_path())
-            .map_err(|_| "Failed to remove old backup")?;
+        sftp.unlink(backup_path.as_path()).unwrap_or_default();
         sftp.rename(
             cloud_database_path.as_path(),
             backup_path.as_path(),

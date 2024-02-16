@@ -16,7 +16,7 @@ impl TOTPManager {
     }
     /// Adds a new TOTP secret to the manager. It takes a constant id and a totp secret
     /// # Errors
-    /// Returns an error if the secret is invalid or if the manager mutex is poisoned.
+    /// Returns an error if the manager is full or if the secret is invalid.
     pub fn add_secret(&self, id: u64, secret: String) -> Result<(), &'static str> {
         let mut guard = self
             .hash_map

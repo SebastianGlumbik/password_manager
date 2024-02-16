@@ -187,6 +187,27 @@ impl Database {
         result.map_err(|_| "Failed to get content")
     }
 
+    pub fn get_all_passwords_for_record(
+        &self,
+        id_record: u64,
+    ) -> Result<Vec<SecretValue>, &'static str> {
+        let sql = SecretString::new(
+            "SELECT value FROM Content WHERE id_record = ?1 AND kind = 'Password';".to_string(),
+        );
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| "Failed to access database lock")?;
+        let mut stmt = connection
+            .prepare(sql.expose_secret())
+            .map_err(|_| "Failed to prepare statement")?;
+        let result: Result<Vec<SecretValue>> = stmt
+            .query_map([id_record], |row| row.get(0))
+            .map_err(|_| "Failed to map password")?
+            .collect();
+        result.map_err(|_| "Failed to get passwords")
+    }
+
     /// Based on the hash, it returns the breach status from the cache.
     pub fn get_data_breach_status(&self, hash: &str) -> Result<Option<bool>, &'static str> {
         let sql =

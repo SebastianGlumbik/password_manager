@@ -34,12 +34,11 @@ export default function Main(): JSX.Element {
     const [search, setSearch] = createSignal("");
     const filteredRecords = createMemo(() => allRecords()?.filter(record => compromisedOnly() ? compromisedRecords.latest?.includes(record.id as number) : true ).filter(record => (record.title.toLowerCase().includes(search().toLowerCase()) || record.subtitle.toLowerCase().includes(search().toLowerCase()) || record.category.toLowerCase().includes(search().toLowerCase()))));
     const [selected, setSelected] = createSignal<Record | "Settings" |  undefined>(undefined);
-    const [cloud] = createResource(allRecords,async () => invoke<string>("cloud_upload"));
+    const [cloud,{refetch: upload}] = createResource(allRecords,async () => invoke<string>("cloud_upload"));
     const [edit, setEdit] = editSignal;
 
     createEffect(() => {
-        if(selected() instanceof Record)
-            setSelected(allRecords()?.find(record => record.id === (untrack(selected) as Record)?.id));
+        setSelected(allRecords()?.find(record => record.id === (untrack(selected) as Record)?.id));
     });
 
     const select = async (selection: Record | "Settings" |  undefined) => {
@@ -56,7 +55,7 @@ export default function Main(): JSX.Element {
 
     let unlistenNewRecord : UnlistenFn | undefined = undefined;
     let unlistenSettings : UnlistenFn | undefined = undefined;
-    let unlistenRefresh : UnlistenFn | undefined = undefined;
+    let unlistenUpload : UnlistenFn | undefined = undefined;
 
     onMount(async () => {
         unlistenNewRecord = await listen<Record>("new_record", async (event) => {
@@ -66,7 +65,7 @@ export default function Main(): JSX.Element {
         unlistenSettings = await listen("settings", async () => {
             await select("Settings");
         });
-        unlistenRefresh = await listen("refresh", () => refetchAllRecords());
+        unlistenUpload = await listen("upload", () => upload());
     });
 
     onCleanup( () => {
@@ -76,8 +75,8 @@ export default function Main(): JSX.Element {
         if (unlistenSettings)
             unlistenSettings();
 
-        if (unlistenRefresh)
-            unlistenRefresh();
+        if (unlistenUpload)
+            unlistenUpload();
     });
 
     return (
@@ -128,7 +127,7 @@ export default function Main(): JSX.Element {
                                     <div class="text-[12px] text-[#828282] dark:text-[#9F9F9F] truncate">
                                         <Suspense fallback={"Syncing..."}>
                                             <Show when={cloud.state == "errored"} fallback={cloud()}>
-                                                {"Failed: " + cloud.error.message}
+                                                {cloud.error.message}
                                             </Show>
                                         </Suspense>
                                     </div>

@@ -3,6 +3,7 @@ import {invoke} from "@tauri-apps/api/tauri";
 import GetSVG from "./GetSVG.tsx";
 import PasswordStrengthIndicator from "./PasswordStrengthIndicator.tsx";
 import {message} from "@tauri-apps/api/dialog";
+import { appWindow } from '@tauri-apps/api/window'
 
 /**
  * Settings page.
@@ -45,6 +46,10 @@ function PasswordChangeForm() {
             setLoading(true);
             try {
                 await invoke("change_password", { password: password(), confirm_password: confirmPassword() })
+                await appWindow.emit("upload");
+                setError("");
+                setPassword("");
+                setConfirmPassword("");
                 await message("Password changed successfully!", {title: "Success", type: "info"})
             } catch (e) {
                 setError(e as string);
@@ -55,7 +60,7 @@ function PasswordChangeForm() {
         }}>
             <p class="text-[18px]">Change master password</p>
             <div class="relative w-full my-3">
-                <input placeholder="Enter new master password" type={visibility() ? 'text' : 'password'} class="pl-4 w-full h-7 rounded-xl pr-10"
+                <input placeholder="Enter new master password" type={visibility() ? 'text' : 'password'} class="pl-4 w-full h-7 rounded-xl pr-10" value={password()}
                        onInput={async (event) => {
                            setPassword(event.target.value);
                            setStrength(await invoke("password_strength", {password: event.target.value}) as number);
@@ -66,7 +71,7 @@ function PasswordChangeForm() {
                 </div>
             </div>
             <div class="relative w-full">
-                <input placeholder="Confirm new master password" type={confirmVisibility() ? 'text' : 'password'} class="pl-4 w-full h-7 rounded-xl pr-10"
+                <input placeholder="Confirm new master password" type={confirmVisibility() ? 'text' : 'password'} class="pl-4 w-full h-7 rounded-xl pr-10" value={confirmPassword()}
                        onInput={(event) => {
                            setConfirmPassword(event.target.value);
                        }}>

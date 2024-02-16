@@ -439,17 +439,14 @@ function ContentValue({content}: {content: Content}): JSX.Element {
                                          kind: content.kind,
                                          value: content.value
                                      });
-                                     console.log(error);
                                      if (error) {
                                          event.target.setCustomValidity(error);
                                      } else {
                                          event.target.setCustomValidity("");
                                          setError("");
-                                         if (content.kind == "BankCardNumber") {
-                                             setCardType(await invoke("card_type", {id: content.id}) as string);
-                                         }
+                                         setCardType("");
                                          if (content.kind == "Password") {
-                                             setPasswordStrength(await invoke("password_strength", {password: content.value}) as number);
+                                             setPasswordStrength(await invoke<number>("password_strength", {password: content.value}) as number);
                                          }
                                      }
                                  }}

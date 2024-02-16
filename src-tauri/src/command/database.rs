@@ -29,19 +29,17 @@ pub async fn get_compromised_records<'a>(
     let mut result: Vec<u64> = Vec::with_capacity(records.len());
 
     for record in records {
-        let all_content = database
-            .get_all_content_for_record(record.id())
-            .map_err(|_| critical_error("Failed to load content", &app_handle, &window))?;
+        let passwords = database
+            .get_all_passwords_for_record(record.id())
+            .map_err(|_| critical_error("Failed to load passwords", &app_handle, &window))?;
 
-        for content in all_content {
-            if let Value::Password(password) = content.value() {
-                match check_password(password.to_secret_string(), database.clone()).await {
-                    Ok(PasswordProblem::Common) | Ok(PasswordProblem::Exposed) => {
-                        result.push(record.id());
-                        break;
-                    }
-                    _ => continue,
+        for password in passwords {
+            match check_password(password, database.clone()).await {
+                Ok(PasswordProblem::Common) | Ok(PasswordProblem::Exposed) => {
+                    result.push(record.id());
+                    break;
                 }
+                _ => continue,
             }
         }
     }
@@ -125,7 +123,6 @@ pub async fn get_all_content_for_record<'a>(
             .get_all_content_for_record(record.id())
             .map_err(|_| critical_error("Failed to load content", &app_handle, &window))?;
 
-        totp_manager.reset();
         content.iter().for_each(|content| {
             if let Value::TOTPSecret(totp_secret) = content.value() {
                 totp_manager
@@ -152,7 +149,7 @@ pub async fn get_content_value<'a>(
         .map_err(|_| "Failed to get content value")
 }
 
-/// Saves a record to the database.
+/// Saves a record to the database. Resets the TOTP manager.
 /// # Return
 /// Returns record id.
 /// # Error
@@ -162,6 +159,7 @@ pub async fn save_record<'a>(
     mut record: Record,
     content: Vec<Content>,
     database: State<'a, Database>,
+    totp_manager: State<'a, TOTPManager>,
 ) -> Result<u64, &'static str> {
     database
         .save_record(&mut record)
@@ -172,6 +170,8 @@ pub async fn save_record<'a>(
             .save_content(record.id(), &mut content)
             .map_err(|_| "Failed to save content")?;
     }
+
+    totp_manager.reset();
 
     Ok(record.id())
 }

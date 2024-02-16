@@ -1,6 +1,7 @@
 use super::*;
 use crate::cloud;
 use crate::database::model::SecretValue;
+use std::os::unix::fs::MetadataExt;
 
 /// For sending cloud data to the frontend
 #[derive(Clone, serde::Serialize)]
@@ -35,21 +36,34 @@ pub async fn enable_cloud<'a>(
     window: Window,
     database: State<'a, Database>,
 ) -> Result<(), &'static str> {
-    cloud::enable(
+    if cloud::enable(
         address.expose_secret(),
         username.expose_secret(),
         password.expose_secret(),
         &app_handle,
-        &window,
         &database,
-    )
-    .await
+    )? && tauri::api::dialog::blocking::MessageDialogBuilder::new("Database detected", "Database detected on cloud, which version do you want to use? (the other one will be overwritten)")
+        .buttons(tauri::api::dialog::MessageDialogButtons::OkCancelWithLabels("Cloud (restart app)".to_string(), "Local".to_string())).kind(tauri::api::dialog::MessageDialogKind::Warning).parent(&window).show() {
+        app_handle.restart();
+    }
+
+    tauri::api::dialog::message(
+        Some(&window),
+        "Success",
+        "From now on your database will be uploaded to the cloud",
+    );
+
+    window
+        .emit("upload", ())
+        .map_err(|_| "Failed to start upload")?;
+
+    Ok(())
 }
 
 /// Disables cloud storage and deletes the credentials.
 #[tauri::command]
 pub async fn disable_cloud<'a>(database: State<'a, Database>) -> Result<(), &'static str> {
-    cloud::disable(&database).await
+    cloud::disable(&database)
 }
 
 /// Uploads the database to the cloud.
@@ -60,22 +74,33 @@ pub async fn cloud_upload<'a>(
     database: State<'a, Database>,
 ) -> Result<String, &'static str> {
     if cloud::is_enabled(&database) {
-        cloud::upload(&window, &app_handle, &database).await
-    } else {
-        Ok("Cloud is not enabled".to_string())
-    }
-}
+        let cloud_mtime =
+            chrono::DateTime::from_timestamp(cloud::m_time(&app_handle, &database)?, 0)
+                .ok_or("Failed to get cloud mtime")?;
 
-/// Downloads the database from the cloud.
-#[tauri::command]
-pub async fn cloud_download<'a>(
-    window: Window,
-    app_handle: AppHandle,
-    database: State<'a, Database>,
-) -> Result<String, &'static str> {
-    if cloud::is_enabled(&database) {
-        cloud::download(&window, &app_handle, &database).await
+        let local_database_path =
+            Database::path(&app_handle).ok_or("Failed to get database path")?;
+        let local_mtime = chrono::DateTime::from_timestamp(
+            std::fs::metadata(local_database_path)
+                .map_err(|_| "Failed to get local metadata")?
+                .mtime(),
+            0,
+        )
+        .ok_or("Failed to get local mtime")?;
+
+        if local_mtime < cloud_mtime && !tauri::api::dialog::blocking::MessageDialogBuilder::new("Cloud version is newer", format!("The cloud version is newer ({}) than the local one ({}). Which version do you want to use?", cloud_mtime.format("%Y-%m-%d %H:%M:%S"), local_mtime.format("%Y-%m-%d %H:%M:%S")))
+            .buttons(tauri::api::dialog::MessageDialogButtons::OkCancelWithLabels("Local".to_string(), "Cloud".to_string())).kind(tauri::api::dialog::MessageDialogKind::Warning).parent(&window).show()
+    {
+        Err("Canceled by user")
+    }
+    else {
+        cloud::upload(&app_handle, &database)?;
+        Ok(format!(
+            "Last sync: {}",
+            chrono::Local::now().time().format("%H:%M:%S")
+        ))
+    }
     } else {
-        Ok("Cloud is not enabled".to_string())
+        Err("Cloud is not enabled")
     }
 }

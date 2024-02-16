@@ -28,7 +28,7 @@ pub async fn check_password_from_database<'a>(
         return Err("Content is not a password");
     };
 
-    let password = password.to_secret_string();
+    let password = SecretValue::new(password.to_secret_string());
 
     check_password(password, database).await
 }
@@ -41,7 +41,7 @@ static SEM: Semaphore = Semaphore::const_new(1);
 /// If semaphore cannot be acquired or if the request fails.
 #[tauri::command]
 pub async fn check_password<'a>(
-    password: SecretString,
+    password: SecretValue,
     database: State<'a, Database>,
 ) -> Result<PasswordProblem, &'static str> {
     if passwords::analyzer::is_common_password(password.expose_secret()) {
@@ -94,7 +94,7 @@ pub async fn check_password<'a>(
 
 /// Returns the strength of the password ([`passwords::scorer::score`])
 #[tauri::command]
-pub async fn password_strength(password: SecretString) -> f64 {
+pub async fn password_strength(password: SecretValue) -> f64 {
     passwords::scorer::score(&passwords::analyzer::analyze(password.expose_secret()))
 }
 

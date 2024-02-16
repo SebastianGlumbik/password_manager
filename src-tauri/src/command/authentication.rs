@@ -1,5 +1,6 @@
 use super::*;
 use crate::cloud;
+use std::os::unix::fs::MetadataExt;
 
 /// Register process. Database must not exist. Adds the database to the app state, initializes the main window and closes the current window.
 /// # Restart
@@ -27,13 +28,38 @@ pub async fn register<'a>(
         .save_window_state(StateFlags::all())
         .unwrap_or_default();
 
-    initialize_window(app_handle)
-        .await
-        .map_err(|_| "Failed to initialize window")?;
+    initialize_window(app_handle).map_err(|_| "Failed to initialize window")?;
 
     window
         .close()
         .map_err(|_| "Failed to close current window")?;
+
+    Ok(())
+}
+
+/// Helper function for login process. Checks databases versions and downloads the cloud database if it is newer. Shows a dialog if the local version is newer.
+fn login_download(
+    app_handle: &AppHandle,
+    window: &Window,
+    database: &Database,
+) -> Result<(), &'static str> {
+    let cloud_mtime = chrono::DateTime::from_timestamp(cloud::m_time(app_handle, database)?, 0)
+        .ok_or("Failed to get cloud mtime")?;
+
+    let local_database_path = Database::path(app_handle).ok_or("Failed to get database path")?;
+    let local_mtime = chrono::DateTime::from_timestamp(
+        std::fs::metadata(local_database_path)
+            .map_err(|_| "Failed to get local metadata")?
+            .mtime(),
+        0,
+    )
+    .ok_or("Failed to get local mtime")?;
+
+    if local_mtime < cloud_mtime || tauri::api::dialog::blocking::MessageDialogBuilder::new("Local version is newer", format!("The local version is newer ({}) than the cloud one ({}). Which version do you want to use?", local_mtime.format("%Y-%m-%d %H:%M:%S"), cloud_mtime.format("%Y-%m-%d %H:%M:%S")))
+        .buttons(tauri::api::dialog::MessageDialogButtons::OkCancelWithLabels("Cloud".to_string(), "Local".to_string())).kind(tauri::api::dialog::MessageDialogKind::Warning).parent(window).show()
+    {
+        cloud::download(app_handle, database)?;
+    }
 
     Ok(())
 }
@@ -55,7 +81,7 @@ pub async fn login<'a>(
     let mut database = Database::open(password.expose_secret(), &app_handle)?;
 
     if cloud::is_enabled(&database) {
-        if let Err(error) = cloud::download(&window, &app_handle, &database).await {
+        if let Err(error) = login_download(&app_handle, &window, &database) {
             if tauri::api::dialog::blocking::ask(
                 Some(&window),
                 error,
@@ -78,9 +104,7 @@ pub async fn login<'a>(
         .save_window_state(StateFlags::all())
         .unwrap_or_default();
 
-    initialize_window(app_handle)
-        .await
-        .map_err(|_| "Failed to initialize window")?;
+    initialize_window(app_handle).map_err(|_| "Failed to initialize window")?;
 
     window
         .close()

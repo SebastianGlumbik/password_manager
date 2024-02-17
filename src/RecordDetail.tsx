@@ -81,13 +81,9 @@ export default function RecordDetail({record,refresh}: {record: () => Record, re
                                    }
                                }}>
                         </input>
-                        <input type="text" class="bg-inherit border-none truncate text-left text-[14px] w-full invalid:text-red-500 read-only:cursor-pointer read-only:hover:text-[#0064E1] read-only:select-none" value={record().subtitle} placeholder="Subtitle" readOnly={!edit()} required
+                        <input type="text" class="bg-inherit border-none truncate text-left text-[14px] w-full invalid:text-red-500 read-only:cursor-pointer read-only:hover:text-[#0064E1] read-only:select-none" value={record().subtitle} placeholder="Subtitle" readOnly={!edit()}
                                onChange={(event) => {
                                    record().subtitle = event.target.value;
-                               }}
-                               onInvalid={(event) => {
-                                   event.preventDefault();
-                                   setError("Subtitle can not be empty");
                                }}
                                onClick={async () => {
                                    if (!edit()) await copyTextToClipboard(record().subtitle)

@@ -75,7 +75,7 @@ If you are using other Linux distribution please refer to https://tauri.app/v1/g
 ## Sources
 - List of Rust crates you can find in [Cargo.toml](src-tauri/Cargo.toml) file.
 - List of JavaScript packages you can find in [package.json](package.json) file.
-- Front-end build with [Tauri](https://tauri.app/), [Solid](https://www.solidjs.com) and [Tailwind CSS](https://tailwindcss.com).
+- Front-end built with [Tauri](https://tauri.app/), [Solid](https://www.solidjs.com) and [Tailwind CSS](https://tailwindcss.com).
 - Encryption of SQLite database - [sqlcipher](https://github.com/sqlcipher/sqlcipher).
 - Passwords are checked with [haveibeenpwned](https://haveibeenpwned.com/Passwords) API.
 - Main icon (lock) - [Flaticon](https://www.flaticon.com/free-icon/lock_526812?term=password&page=1&position=28&origin=search&related_id=526812)

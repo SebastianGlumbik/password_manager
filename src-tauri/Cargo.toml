@@ -16,7 +16,7 @@ tauri = { version = "1.5.4", features = [ "dialog-message", "dialog-confirm", "c
 tauri-plugin-single-instance = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 tauri-plugin-context-menu = "0.7.0"
-arboard = "3.3.0"
+arboard = "3.3.1"
 serde = { version = "1.0.196", features = ["derive"] }
 serde_json = "1.0.113"
 rusqlite = { version = "0.31.0", features = ["bundled-sqlcipher", "chrono"] }
@@ -24,7 +24,7 @@ zeroize = { version = "1.7.0", features = ["zeroize_derive"] }
 totp-rs = { version = "5.5.1", features = ["otpauth", "zeroize"] }
 passwords = { version = "3.1.16", features = ["common-password"] }
 validator = { version = "0.16.1", features = ["phone"] }
-chrono = { version = "0.4.33", features = ["serde"] }
+chrono = { version = "0.4.34", features = ["serde"] }
 secrecy = { version = "0.8.0", features = ["serde"] }
 sha1 = "0.10.6"
 reqwest = "0.11.24"

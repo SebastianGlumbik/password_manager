@@ -38,27 +38,31 @@ pub async fn register<'a>(
 }
 
 /// Helper function for login process. Checks databases versions and downloads the cloud database if it is newer. Shows a dialog if the local version is newer.
-fn login_download(
+async fn login_download(
     app_handle: &AppHandle,
     window: &Window,
     database: &Database,
 ) -> Result<(), &'static str> {
-    let cloud_mtime = chrono::DateTime::from_timestamp(cloud::m_time(app_handle, database)?, 0)
-        .ok_or("Failed to get cloud mtime")?;
+    let manager = cloud::CloudManager::connect_from_database(database, app_handle)?;
+    if manager.exists()? {
+        let cloud_mtime = chrono::DateTime::from_timestamp(manager.m_time()?, 0)
+            .ok_or("Failed to get cloud mtime")?;
 
-    let local_database_path = Database::path(app_handle).ok_or("Failed to get database path")?;
-    let local_mtime = chrono::DateTime::from_timestamp(
-        std::fs::metadata(local_database_path)
-            .map_err(|_| "Failed to get local metadata")?
-            .mtime(),
-        0,
-    )
-    .ok_or("Failed to get local mtime")?;
+        let local_database_path =
+            Database::path(app_handle).ok_or("Failed to get database path")?;
+        let local_mtime = chrono::DateTime::from_timestamp(
+            std::fs::metadata(local_database_path)
+                .map_err(|_| "Failed to get local metadata")?
+                .mtime(),
+            0,
+        )
+        .ok_or("Failed to get local mtime")?;
 
-    if local_mtime < cloud_mtime || tauri::api::dialog::blocking::MessageDialogBuilder::new("Local version is newer", format!("The local version is newer ({}) than the cloud one ({}). Which version do you want to use?", local_mtime.format("%Y-%m-%d %H:%M:%S"), cloud_mtime.format("%Y-%m-%d %H:%M:%S")))
-        .buttons(tauri::api::dialog::MessageDialogButtons::OkCancelWithLabels("Cloud".to_string(), "Local".to_string())).kind(tauri::api::dialog::MessageDialogKind::Warning).parent(window).show()
-    {
-        cloud::download(app_handle, database)?;
+        if local_mtime <= cloud_mtime || tauri::api::dialog::blocking::MessageDialogBuilder::new("Local version is newer", format!("The local version is newer ({}) than the cloud one ({}). Which version do you want to use?", local_mtime.format("%Y-%m-%d %H:%M:%S"), cloud_mtime.format("%Y-%m-%d %H:%M:%S")))
+            .buttons(tauri::api::dialog::MessageDialogButtons::OkCancelWithLabels("Cloud".to_string(), "Local".to_string())).kind(tauri::api::dialog::MessageDialogKind::Warning).parent(window).show()
+        {
+            manager.download().await?;
+        }
     }
 
     Ok(())
@@ -80,8 +84,8 @@ pub async fn login<'a>(
 
     let mut database = Database::open(password.expose_secret(), &app_handle)?;
 
-    if cloud::is_enabled(&database) {
-        if let Err(error) = login_download(&app_handle, &window, &database) {
+    if cloud::CloudManager::is_enabled(&database) {
+        if let Err(error) = login_download(&app_handle, &window, &database).await {
             if tauri::api::dialog::blocking::ask(
                 Some(&window),
                 error,

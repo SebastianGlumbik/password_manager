@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 mod cloud;
 mod command;
 mod database;

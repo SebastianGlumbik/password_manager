@@ -1,3 +1,4 @@
+#![allow(unused_imports, unused_variables)]
 pub mod event;
 use super::*;
 use tauri::{AboutMetadata, CustomMenuItem, Menu, MenuEntry, MenuItem, Submenu};

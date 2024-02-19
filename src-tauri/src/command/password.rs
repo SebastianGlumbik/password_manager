@@ -1,4 +1,5 @@
 use super::*;
+use crate::database::model::SecretValue;
 use sha1::digest::generic_array::functional::FunctionalSequence;
 use sha1::{Digest, Sha1};
 use tokio::sync::Semaphore;
@@ -27,7 +28,7 @@ pub async fn check_password_from_database<'a>(
         return Err("Content is not a password");
     };
 
-    let password = password.to_secret_string();
+    let password = SecretValue::new(password.to_secret_string());
 
     check_password(password, database).await
 }
@@ -40,7 +41,7 @@ static SEM: Semaphore = Semaphore::const_new(1);
 /// If semaphore cannot be acquired or if the request fails.
 #[tauri::command]
 pub async fn check_password<'a>(
-    password: SecretString,
+    password: SecretValue,
     database: State<'a, Database>,
 ) -> Result<PasswordProblem, &'static str> {
     if passwords::analyzer::is_common_password(password.expose_secret()) {
@@ -93,7 +94,7 @@ pub async fn check_password<'a>(
 
 /// Returns the strength of the password ([`passwords::scorer::score`])
 #[tauri::command]
-pub async fn password_strength(password: SecretString) -> f64 {
+pub async fn password_strength(password: SecretValue) -> f64 {
     passwords::scorer::score(&passwords::analyzer::analyze(password.expose_secret()))
 }
 
@@ -108,7 +109,7 @@ pub async fn generate_password<'a>(
     lowercase_letters: bool,
     symbols: bool,
 ) -> Result<SecretValue, &'static str> {
-    Ok(SecretValue(SecretString::new(
+    Ok(SecretValue::new(SecretString::new(
         passwords::PasswordGenerator {
             length,
             numbers,

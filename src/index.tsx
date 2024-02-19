@@ -21,7 +21,7 @@ window.addEventListener('contextmenu', function(event) {
  * @return {JSX.Element} - Div containing the main app.
  */
 function App(): JSX.Element {
-    const [window] = createResource(async () => invoke("initialize_window"));
+    const [window] = createResource(async () => invoke<string>("initialize_window"));
 
     return (
         <Suspense fallback={<Loading/>}>

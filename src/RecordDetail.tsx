@@ -1,5 +1,5 @@
 import {Content, KindSVG, Record, editSignal} from "./Model.tsx";
-import {createEffect, createResource, createSignal, For, JSX, Match, onCleanup, Show, Switch} from "solid-js";
+import {createEffect, createResource, createSignal, For, JSX, Match, onCleanup, onMount, Show, Switch} from "solid-js";
 import {invoke} from "@tauri-apps/api/tauri";
 import GetSVG from "./GetSVG.tsx";
 import { writeText } from '@tauri-apps/api/clipboard';
@@ -7,9 +7,10 @@ import {showMenu} from "tauri-plugin-context-menu";
 import { Item } from "tauri-plugin-context-menu/dist/types";
 import PasswordStrengthIndicator from "./PasswordStrengthIndicator.tsx";
 import {confirm, message} from "@tauri-apps/api/dialog";
+import {listen,UnlistenFn} from "@tauri-apps/api/event";
 
 /**
- * Shows a context menu with a single item to copy the given text to the clipboard.
+ * Shows a context menu with a single item to copy the given text to the clipboard. Event is listened in RecordDetail.
  * @param text - The text to be copied to the clipboard.
  */
 async function copyTextToClipboard(text: string) {
@@ -17,8 +18,8 @@ async function copyTextToClipboard(text: string) {
         items: [{
             label: "Copy " + text,
             disabled: false,
-            event: async (event) => await writeText(event?.payload.text),
-            payload: {text: text},
+            event: "copy_text_to_clipboard",
+            payload: text,
         }]
     });
 }
@@ -38,6 +39,42 @@ export default function RecordDetail({record,refresh}: {record: () => Record, re
     createEffect(() => {
         record()
         setError("");
+    });
+
+    let unlistenCopyValue: UnlistenFn | undefined = undefined;
+    let unlistenCopyText : UnlistenFn | undefined = undefined;
+    let unlistenAddContent : UnlistenFn | undefined = undefined;
+
+    onMount(async () => {
+        unlistenCopyValue = await listen<string>("copy_value_to_clipboard", async (event) => {
+            try{
+                await invoke("copy_value_to_clipboard",{id: Number.parseInt(event?.payload)})
+            }
+            catch (e) {
+                await message(e as string, { title: 'Error', type: 'error' })
+            }
+        });
+
+        unlistenCopyText = await listen<string>("copy_text_to_clipboard", async (event) => {
+            await writeText(event?.payload)
+        });
+
+        unlistenAddContent = await listen<string>("add_content", (event) => {
+            let temp: Content[] = Object.assign([], allContent() as Content[]);
+            temp.push(new Content("", allContent()!.length as number, false, event.payload, ""));
+            newContent(temp);
+        });
+    });
+
+    onCleanup(() => {
+        if (unlistenCopyValue)
+            unlistenCopyValue();
+
+        if (unlistenCopyText)
+            unlistenCopyText();
+
+        if (unlistenAddContent)
+            unlistenAddContent();
     });
 
     return (
@@ -81,13 +118,9 @@ export default function RecordDetail({record,refresh}: {record: () => Record, re
                                    }
                                }}>
                         </input>
-                        <input type="text" class="bg-inherit border-none truncate text-left text-[14px] w-full invalid:text-red-500 read-only:cursor-pointer read-only:hover:text-[#0064E1] read-only:select-none" value={record().subtitle} placeholder="Subtitle" readOnly={!edit()} required
+                        <input type="text" class="bg-inherit border-none truncate text-left text-[14px] w-full invalid:text-red-500 read-only:cursor-pointer read-only:hover:text-[#0064E1] read-only:select-none" value={record().subtitle} placeholder="Subtitle" readOnly={!edit()}
                                onChange={(event) => {
                                    record().subtitle = event.target.value;
-                               }}
-                               onInvalid={(event) => {
-                                   event.preventDefault();
-                                   setError("Subtitle can not be empty");
                                }}
                                onClick={async () => {
                                    if (!edit()) await copyTextToClipboard(record().subtitle)
@@ -122,11 +155,11 @@ export default function RecordDetail({record,refresh}: {record: () => Record, re
                                             <button title="Move up" onClick={(event) => {
                                                 event.preventDefault();
                                                 if(index() === 0) return;
-                                                allContent()![index() - 1].position = index() + 1;
+                                                allContent()![index() - 1].position = index();
                                                 content.position = index() - 1;
                                                 let temp: Content[] = Object.assign([], allContent() as Content[]);
-                                                temp[index()] = allContent()![index() - 1];
                                                 temp[index() - 1] = allContent()![index()];
+                                                temp[index()] = allContent()![index() - 1];
                                                 newContent(temp);
                                             }}>
                                                 <GetSVG name="arrow-up" class="w-3 hover:fill-[#0064E1]"/>
@@ -155,11 +188,11 @@ export default function RecordDetail({record,refresh}: {record: () => Record, re
                                             <button title="Move down" onClick={(event) => {
                                                 event.preventDefault();
                                                 if(index() === (allContent()?.length as number - 1)) return;
-                                                allContent()![index() + 1].position = index() + 1;
+                                                allContent()![index() + 1].position = index();
                                                 content.position = index() + 1;
                                                 let temp: Content[] = Object.assign([], allContent() as Content[]);
-                                                temp[index()] = allContent()![index() + 1];
                                                 temp[index() + 1] = allContent()![index()];
+                                                temp[index()] = allContent()![index() + 1];
                                                 newContent(temp);
                                             }}>
                                                 <GetSVG name="arrow-down" class="w-3 hover:fill-[#0064E1]"/>
@@ -178,67 +211,62 @@ export default function RecordDetail({record,refresh}: {record: () => Record, re
                         <div class="flex justify-center w-full">
                             <button class="py-1" title="Add new content" onClick={async (event) => {
                                 event.preventDefault();
-                                function addContent(kind: string) {
-                                    let temp: Content[] = Object.assign([], allContent() as Content[]);
-                                    temp.push(new Content("", allContent()?.length as number + 1, false, kind, ""));
-                                    newContent(temp);
-                                }
                                 await showMenu({
                                     items: [
                                         {
                                             label: "Number",
-                                            disabled: false,
-                                            event: () => addContent("Number"),
+                                            event: "add_content",
+                                            payload: "Number"
                                         },
                                         {
                                             label: "Text",
-                                            disabled: false,
-                                            event: () => addContent("Text"),
+                                            event: "add_content",
+                                            payload: "Text"
                                         },
                                         {
                                             label: "Long text",
-                                            disabled: false,
-                                            event: () => addContent("LongText"),
+                                            event: "add_content",
+                                            payload: "LongText"
                                         },
                                         {
                                             label: "Sensitive text",
-                                            disabled: false,
-                                            event: () => addContent("SensitiveText"),
+                                            event: "add_content",
+                                            payload: "SensitiveText"
                                         },
                                         {
                                             label: "Date",
-                                            disabled: false,
-                                            event: () => addContent("Date"),
+                                            event: "add_content",
+                                            payload: "Date"
                                         },
                                         {
                                             label: "Password",
-                                            disabled: false,
-                                            event: () => addContent("Password"),
+                                            event: "add_content",
+                                            payload: "Password"
                                         },
                                         {
                                             label: "TOTP secret",
-                                            disabled: false,
-                                            event: () => addContent("TOTPSecret"),
+                                            event: "add_content",
+                                            payload: "TOTPSecret"
                                         },
                                         {
                                             label: "URL",
-                                            disabled: false,
-                                            event: () => addContent("Url"),
+                                            event: "add_content",
+                                            payload: "Url"
                                         },
                                         {
                                             label: "Email",
-                                            disabled: false,
-                                            event: () => addContent("Email"),
+                                            event: "add_content",
+                                            payload: "Email"
                                         },
                                         {
                                             label: "Phone number",
-                                            disabled: false,
-                                            event: () => addContent("PhoneNumber"),
+                                            event: "add_content",
+                                            payload: "PhoneNumber"
                                         },
                                         {
                                             label: "Bank card number",
-                                            disabled: false,
-                                            event: () => addContent("BankCardNumber"),
+                                            event: "add_content",
+                                            payload: "BankCardNumber"
                                         }]
                                 });
                             }
@@ -270,6 +298,17 @@ function ContentValue({content}: {content: Content}): JSX.Element {
     const [symbols, setSymbols] = createSignal(true);
     const [cardType, setCardType] = createSignal("");
     const [totp, setTotp] = createSignal(["",0]);
+
+    let unlistenVisibility : UnlistenFn | undefined = undefined;
+
+    onMount(async () => {
+        unlistenVisibility = await listen("visibility"+content.id?.toString(), () => setVisibility(!visibility()));
+    });
+
+    onCleanup(() => {
+        if (unlistenVisibility)
+            unlistenVisibility();
+    });
 
     const [value,{mutate: setValue}] = createResource(
         () => [edit(), visibility()] as const,
@@ -374,8 +413,8 @@ function ContentValue({content}: {content: Content}): JSX.Element {
         let items: Item[] = [{
             label: "Copy value of " + label,
             disabled: false,
-            event: async (event) => await invoke("copy_value_to_clipboard",{id: event?.payload.id as number}).catch(async (e) => await message(e as string, { title: 'Error', type: 'error' })),
-            payload: {id: id},
+            event: "copy_value_to_clipboard",
+            payload: id.toString(),
         }]
         if(content.kind === "SensitiveText" || content.kind === "Password" || content.kind === "BankCardNumber") {
             items.push({
@@ -384,7 +423,7 @@ function ContentValue({content}: {content: Content}): JSX.Element {
             items.push({
                 label: (visibility() ? "Hide" : "Reveal") + " value of " + label,
                 disabled: false,
-                event: () => setVisibility(!visibility()),
+                event: "visibility"+content.id?.toString(),
                 checked: visibility(),
             });
         }
@@ -439,17 +478,14 @@ function ContentValue({content}: {content: Content}): JSX.Element {
                                          kind: content.kind,
                                          value: content.value
                                      });
-                                     console.log(error);
                                      if (error) {
                                          event.target.setCustomValidity(error);
                                      } else {
                                          event.target.setCustomValidity("");
                                          setError("");
-                                         if (content.kind == "BankCardNumber") {
-                                             setCardType(await invoke("card_type", {id: content.id}) as string);
-                                         }
+                                         setCardType("");
                                          if (content.kind == "Password") {
-                                             setPasswordStrength(await invoke("password_strength", {password: content.value}) as number);
+                                             setPasswordStrength(await invoke<number>("password_strength", {password: content.value}) as number);
                                          }
                                      }
                                  }}
@@ -481,22 +517,22 @@ function ContentValue({content}: {content: Content}): JSX.Element {
                                             <GetSVG name="arrows-rotate" class="w-4 cursor-pointer hover:fill-[#0064E1]" />
                                         </button>
                                     </div>
-                                    <div class="flex flex-row items-center justify-evenly mt-0.5">
-                                        <div class="flex flex-row items-center gap-2 ">
+                                    <div class="flex flex-row items-center justify-evenly mt-0.5 flex-wrap">
+                                        <div class="flex flex-row items-center gap-2">
                                             <input type="checkbox" checked={numbers()} class="checkbox checkbox-sm [--chkbg:#0064E1] [--chkfg:#E9E9E9]" onInput={event => setNumbers(event.target.checked)}/>
-                                            <p class="text-[14px] truncate">Number</p>
+                                            <p class="text-[14px]">Number</p>
                                         </div>
                                         <div class="flex flex-row items-center gap-2">
                                             <input type="checkbox" checked={upperCase()} class="checkbox checkbox-sm [--chkbg:#0064E1] [--chkfg:#E9E9E9]" onInput={event => setUpperCase(event.target.checked)}/>
-                                            <p class="text-[14px] truncate">Uppercase</p>
+                                            <p class="text-[14px]">Uppercase</p>
                                         </div>
                                         <div class="flex flex-row items-center gap-2">
                                             <input type="checkbox" checked={lowerCase()} class="checkbox checkbox-sm [--chkbg:#0064E1] [--chkfg:#E9E9E9]" onInput={event => setLowerCase(event.target.checked)}/>
-                                            <p class="text-[14px] truncate">Lowercase</p>
+                                            <p class="text-[14px]">Lowercase</p>
                                         </div>
                                         <div class="flex flex-row items-center gap-2">
                                             <input type="checkbox" checked={symbols()} class="checkbox checkbox-sm [--chkbg:#0064E1] [--chkfg:#E9E9E9]" onInput={event => setSymbols(event.target.checked)}/>
-                                            <p class="text-[14px] truncate">Symbols</p>
+                                            <p class="text-[14px]">Symbols</p>
                                         </div>
                                     </div>
                                 </div>

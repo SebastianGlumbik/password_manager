@@ -34,7 +34,7 @@ export default function Main(): JSX.Element {
     const [search, setSearch] = createSignal("");
     const filteredRecords = createMemo(() => allRecords()?.filter(record => compromisedOnly() ? compromisedRecords.latest?.includes(record.id as number) : true ).filter(record => (record.title.toLowerCase().includes(search().toLowerCase()) || record.subtitle.toLowerCase().includes(search().toLowerCase()) || record.category.toLowerCase().includes(search().toLowerCase()))));
     const [selected, setSelected] = createSignal<Record | "Settings" |  undefined>(undefined);
-    const [cloud] = createResource(allRecords,async () => invoke<string>("cloud"));
+    const [cloud,{refetch: upload}] = createResource(allRecords,async () => invoke<string>("cloud_upload"));
     const [edit, setEdit] = editSignal;
 
     createEffect(() => {
@@ -54,24 +54,52 @@ export default function Main(): JSX.Element {
     }
 
     let unlistenNewRecord : UnlistenFn | undefined = undefined;
+    let unlistenDeleteRecord : UnlistenFn | undefined = undefined;
     let unlistenSettings : UnlistenFn | undefined = undefined;
+    let unlistenUpload : UnlistenFn | undefined = undefined;
 
     onMount(async () => {
         unlistenNewRecord = await listen<Record>("new_record", async (event) => {
             await select(new Record(event.payload.title, event.payload.subtitle, event.payload.category, event.payload.created, event.payload.last_modified, event.payload.id));
             setEdit(true);
         });
+
+        unlistenDeleteRecord = await listen<string>("delete_record", async (event) => {
+            let record = allRecords()?.find(record => record.id === Number.parseInt(event.payload));
+            if (record) {
+                const confirmed = await confirm("Are you sure you want to delete " + record.title + "?",{title: "Delete " + record.title, type: "warning"});
+                if(!confirmed) {
+                    return;
+                }
+                try {
+                    await invoke("delete_record", {record: record});
+                }
+                catch (e) {
+                    await message(e as string, { title: 'Error', type: 'error' });
+                }
+                refetchAllRecords();
+                await select(undefined);
+            }
+        });
+
         unlistenSettings = await listen("settings", async () => {
             await select("Settings");
         });
+        unlistenUpload = await listen("upload", () => upload());
     });
 
     onCleanup( () => {
         if (unlistenNewRecord)
             unlistenNewRecord();
 
+        if (unlistenDeleteRecord)
+            unlistenDeleteRecord();
+
         if (unlistenSettings)
             unlistenSettings();
+
+        if (unlistenUpload)
+            unlistenUpload();
     });
 
     return (
@@ -122,7 +150,7 @@ export default function Main(): JSX.Element {
                                     <div class="text-[12px] text-[#828282] dark:text-[#9F9F9F] truncate">
                                         <Suspense fallback={"Syncing..."}>
                                             <Show when={cloud.state == "errored"} fallback={cloud()}>
-                                                {"Failed to sync"}
+                                                {cloud.error.message}
                                             </Show>
                                         </Suspense>
                                     </div>
@@ -147,21 +175,8 @@ export default function Main(): JSX.Element {
                                                 items: [{
                                                     label: `Delete ${item.title}`,
                                                     disabled: false,
-                                                    event: async (event) => {
-                                                        const confirmed = await confirm("Are you sure you want to delete " + event?.payload.record.title + "?",{title: "Delete " + event?.payload.record.title, type: "warning"});
-                                                        if(!confirmed) {
-                                                            return;
-                                                        }
-                                                        try {
-                                                            await invoke("delete_record", {record: event?.payload.record});
-                                                        }
-                                                        catch (e) {
-                                                            await message(e as string, { title: 'Error', type: 'error' });
-                                                        }
-                                                        refetchAllRecords();
-                                                        await select(undefined);
-                                                    },
-                                                    payload: {record: item},
+                                                    event: "delete_record",
+                                                    payload: item.id?.toString(),
                                                 }]
                                             });
                                         }

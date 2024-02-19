@@ -11,22 +11,8 @@ use crate::database::model::value::ToSecretString;
 use crate::database::model::{value, Category, Content, Record, Value};
 use crate::database::Database;
 use secrecy::{ExposeSecret, SecretString};
-use serde::{Serialize, Serializer};
 use std::ops::Not;
 use tauri::State;
-use zeroize::Zeroize;
-
-/// Used for returning content value that are normally not serialized.
-pub struct SecretValue(SecretString);
-
-impl Serialize for SecretValue {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(self.0.expose_secret())
-    }
-}
 
 /// Takes value from database and copies it to the clipboard.
 /// # Error

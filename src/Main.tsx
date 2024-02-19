@@ -54,6 +54,7 @@ export default function Main(): JSX.Element {
     }
 
     let unlistenNewRecord : UnlistenFn | undefined = undefined;
+    let unlistenDeleteRecord : UnlistenFn | undefined = undefined;
     let unlistenSettings : UnlistenFn | undefined = undefined;
     let unlistenUpload : UnlistenFn | undefined = undefined;
 
@@ -62,6 +63,25 @@ export default function Main(): JSX.Element {
             await select(new Record(event.payload.title, event.payload.subtitle, event.payload.category, event.payload.created, event.payload.last_modified, event.payload.id));
             setEdit(true);
         });
+
+        unlistenDeleteRecord = await listen<string>("delete_record", async (event) => {
+            let record = allRecords()?.find(record => record.id === Number.parseInt(event.payload));
+            if (record) {
+                const confirmed = await confirm("Are you sure you want to delete " + record.title + "?",{title: "Delete " + record.title, type: "warning"});
+                if(!confirmed) {
+                    return;
+                }
+                try {
+                    await invoke("delete_record", {record: record});
+                }
+                catch (e) {
+                    await message(e as string, { title: 'Error', type: 'error' });
+                }
+                refetchAllRecords();
+                await select(undefined);
+            }
+        });
+
         unlistenSettings = await listen("settings", async () => {
             await select("Settings");
         });
@@ -71,6 +91,9 @@ export default function Main(): JSX.Element {
     onCleanup( () => {
         if (unlistenNewRecord)
             unlistenNewRecord();
+
+        if (unlistenDeleteRecord)
+            unlistenDeleteRecord();
 
         if (unlistenSettings)
             unlistenSettings();
@@ -152,21 +175,8 @@ export default function Main(): JSX.Element {
                                                 items: [{
                                                     label: `Delete ${item.title}`,
                                                     disabled: false,
-                                                    event: async (event) => {
-                                                        const confirmed = await confirm("Are you sure you want to delete " + event?.payload.record.title + "?",{title: "Delete " + event?.payload.record.title, type: "warning"});
-                                                        if(!confirmed) {
-                                                            return;
-                                                        }
-                                                        try {
-                                                            await invoke("delete_record", {record: event?.payload.record});
-                                                        }
-                                                        catch (e) {
-                                                            await message(e as string, { title: 'Error', type: 'error' });
-                                                        }
-                                                        refetchAllRecords();
-                                                        await select(undefined);
-                                                    },
-                                                    payload: {record: item},
+                                                    event: "delete_record",
+                                                    payload: item.id?.toString(),
                                                 }]
                                             });
                                         }

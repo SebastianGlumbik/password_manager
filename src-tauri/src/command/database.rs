@@ -59,29 +59,35 @@ pub async fn get_all_content_for_record<'a>(
     window: Window,
 ) -> Result<Vec<Content>, ()> {
     if record.id() == 0 {
-        let mut content: Vec<Content> = Vec::with_capacity(4);
+        let mut content: Vec<Content> = Vec::with_capacity(5);
         match record.category() {
             Category::Login => {
                 content.push(Content::new(
                     "Website".to_string(),
-                    1,
+                    0,
                     true,
                     Value::Url(value::Url::default()),
                 ));
                 content.push(Content::new(
                     "User".to_string(),
-                    2,
+                    1,
                     true,
                     Value::Text(value::Text::default()),
                 ));
                 content.push(Content::new(
                     "Password".to_string(),
-                    3,
+                    2,
                     true,
                     Value::Password(value::Password::default()),
                 ));
             }
             Category::BankCard => {
+                content.push(Content::new(
+                    "Card holder".to_string(),
+                    0,
+                    true,
+                    Value::Text(value::Text::default()),
+                ));
                 content.push(Content::new(
                     "Card number".to_string(),
                     1,
@@ -110,7 +116,7 @@ pub async fn get_all_content_for_record<'a>(
             Category::Note => {
                 content.push(Content::new(
                     "Note".to_string(),
-                    1,
+                    0,
                     true,
                     Value::LongText(value::LongText::default()),
                 ));

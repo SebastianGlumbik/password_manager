@@ -61,7 +61,7 @@ export default function RecordDetail({record,refresh}: {record: () => Record, re
 
         unlistenAddContent = await listen<string>("add_content", (event) => {
             let temp: Content[] = Object.assign([], allContent() as Content[]);
-            temp.push(new Content("", allContent()?.length as number + 1, false, event.payload, ""));
+            temp.push(new Content("", allContent()!.length as number, false, event.payload, ""));
             newContent(temp);
         });
     });
@@ -155,11 +155,11 @@ export default function RecordDetail({record,refresh}: {record: () => Record, re
                                             <button title="Move up" onClick={(event) => {
                                                 event.preventDefault();
                                                 if(index() === 0) return;
-                                                allContent()![index() - 1].position = index() + 1;
+                                                allContent()![index() - 1].position = index();
                                                 content.position = index() - 1;
                                                 let temp: Content[] = Object.assign([], allContent() as Content[]);
-                                                temp[index()] = allContent()![index() - 1];
                                                 temp[index() - 1] = allContent()![index()];
+                                                temp[index()] = allContent()![index() - 1];
                                                 newContent(temp);
                                             }}>
                                                 <GetSVG name="arrow-up" class="w-3 hover:fill-[#0064E1]"/>
@@ -188,11 +188,11 @@ export default function RecordDetail({record,refresh}: {record: () => Record, re
                                             <button title="Move down" onClick={(event) => {
                                                 event.preventDefault();
                                                 if(index() === (allContent()?.length as number - 1)) return;
-                                                allContent()![index() + 1].position = index() + 1;
+                                                allContent()![index() + 1].position = index();
                                                 content.position = index() + 1;
                                                 let temp: Content[] = Object.assign([], allContent() as Content[]);
-                                                temp[index()] = allContent()![index() + 1];
                                                 temp[index() + 1] = allContent()![index()];
+                                                temp[index()] = allContent()![index() + 1];
                                                 newContent(temp);
                                             }}>
                                                 <GetSVG name="arrow-down" class="w-3 hover:fill-[#0064E1]"/>

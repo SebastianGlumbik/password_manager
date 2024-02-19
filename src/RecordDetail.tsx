@@ -517,22 +517,22 @@ function ContentValue({content}: {content: Content}): JSX.Element {
                                             <GetSVG name="arrows-rotate" class="w-4 cursor-pointer hover:fill-[#0064E1]" />
                                         </button>
                                     </div>
-                                    <div class="flex flex-row items-center justify-evenly mt-0.5">
-                                        <div class="flex flex-row items-center gap-2 ">
+                                    <div class="flex flex-row items-center justify-evenly mt-0.5 flex-wrap">
+                                        <div class="flex flex-row items-center gap-2">
                                             <input type="checkbox" checked={numbers()} class="checkbox checkbox-sm [--chkbg:#0064E1] [--chkfg:#E9E9E9]" onInput={event => setNumbers(event.target.checked)}/>
-                                            <p class="text-[14px] truncate">Number</p>
+                                            <p class="text-[14px]">Number</p>
                                         </div>
                                         <div class="flex flex-row items-center gap-2">
                                             <input type="checkbox" checked={upperCase()} class="checkbox checkbox-sm [--chkbg:#0064E1] [--chkfg:#E9E9E9]" onInput={event => setUpperCase(event.target.checked)}/>
-                                            <p class="text-[14px] truncate">Uppercase</p>
+                                            <p class="text-[14px]">Uppercase</p>
                                         </div>
                                         <div class="flex flex-row items-center gap-2">
                                             <input type="checkbox" checked={lowerCase()} class="checkbox checkbox-sm [--chkbg:#0064E1] [--chkfg:#E9E9E9]" onInput={event => setLowerCase(event.target.checked)}/>
-                                            <p class="text-[14px] truncate">Lowercase</p>
+                                            <p class="text-[14px]">Lowercase</p>
                                         </div>
                                         <div class="flex flex-row items-center gap-2">
                                             <input type="checkbox" checked={symbols()} class="checkbox checkbox-sm [--chkbg:#0064E1] [--chkfg:#E9E9E9]" onInput={event => setSymbols(event.target.checked)}/>
-                                            <p class="text-[14px] truncate">Symbols</p>
+                                            <p class="text-[14px]">Symbols</p>
                                         </div>
                                     </div>
                                 </div>

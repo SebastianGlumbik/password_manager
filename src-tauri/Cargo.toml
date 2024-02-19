@@ -12,7 +12,7 @@ edition = "2021"
 tauri-build = { version = "1.5.1", features = [] }
 
 [dependencies]
-tauri = { version = "1.5.4", features = [ "dialog-message", "dialog-confirm", "clipboard-write-text", "dialog"] }
+tauri = { version = "1.6.0", features = [ "dialog-message", "dialog-confirm", "clipboard-write-text", "dialog"] }
 tauri-plugin-single-instance = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 tauri-plugin-context-menu = "0.7.0"
@@ -30,7 +30,7 @@ sha1 = "0.10.6"
 reqwest = "0.11.24"
 tokio = { version = "1.36.0", features = ["full"] }
 card-validate = "2.3.0"
-anyhow = "1.0.79"
+anyhow = "1.0.80"
 ssh2 = "0.9.4"
 
 [features]

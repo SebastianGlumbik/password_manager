@@ -2,6 +2,7 @@ use super::*;
 use crate::database::model::*;
 use crate::database::DATABASE_FILE_NAME;
 use std::fs;
+use std::path::Path;
 use tauri::{MenuEvent, Window};
 
 /// Handles all menu events.
@@ -77,6 +78,7 @@ pub fn choose_database(app_handle: AppHandle, window: Window) {
                 "Set database",
                 "Database already exists. Are you sure you want to continue? This action will permanently delete all passwords in the current database.",
             ) {
+                old_database.parent().map(|parent| fs::create_dir_all(parent).unwrap_or_default()).unwrap_or_default();
                 if let Some(new_database) = tauri::api::dialog::blocking::FileDialogBuilder::new()
                     .set_parent(&window)
                     .set_title("Set database").add_filter("Password Manager", &["password_manager"])

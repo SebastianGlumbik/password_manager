@@ -16,6 +16,9 @@
       "dialog": {
         "message": true,
         "confirm": true
+      },
+      "window": {
+        "close": true
       }
     },
     "bundle": {

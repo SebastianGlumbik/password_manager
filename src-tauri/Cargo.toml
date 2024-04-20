@@ -7,30 +7,31 @@ readme = "../README.md"
 repository = "https://github.com/SebastianGlumbik/password_manager"
 publish = false
 edition = "2021"
+license = "MIT"
 
 [build-dependencies]
 tauri-build = { version = "1.5.1", features = [] }
 
 [dependencies]
-tauri = { version = "1.6.0", features = [ "dialog-message", "dialog-confirm", "clipboard-write-text", "dialog"] }
+tauri = { version = "1.6.1", features = [ "window-close", "dialog-message", "dialog-confirm", "clipboard-write-text", "dialog"] }
 tauri-plugin-single-instance = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
-tauri-plugin-context-menu = "0.7.0"
-arboard = "3.3.1"
-serde = { version = "1.0.196", features = ["derive"] }
-serde_json = "1.0.113"
+tauri-plugin-context-menu = "0.7.1"
+arboard = "3.3.2"
+serde = { version = "1.0.198", features = ["derive"] }
+serde_json = "1.0.116"
 rusqlite = { version = "0.31.0", features = ["bundled-sqlcipher", "chrono"] }
 zeroize = { version = "1.7.0", features = ["zeroize_derive"] }
 totp-rs = { version = "5.5.1", features = ["otpauth", "zeroize"] }
 passwords = { version = "3.1.16", features = ["common-password"] }
 validator = { version = "0.16.1", features = ["phone"] }
-chrono = { version = "0.4.34", features = ["serde"] }
+chrono = { version = "0.4.38", features = ["serde"] }
 secrecy = { version = "0.8.0", features = ["serde"] }
 sha1 = "0.10.6"
-reqwest = "0.11.24"
-tokio = { version = "1.36.0", features = ["full"] }
-card-validate = "2.3.0"
-anyhow = "1.0.80"
+reqwest = "0.12.3"
+tokio = { version = "1.37.0", features = ["full"] }
+card-validate = "2.4.0"
+anyhow = "1.0.82"
 ssh2 = "0.9.4"
 
 [features]

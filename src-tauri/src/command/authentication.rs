@@ -30,10 +30,6 @@ pub async fn register<'a>(
 
     initialize_window(app_handle).map_err(|_| "Failed to initialize window")?;
 
-    window
-        .close()
-        .map_err(|_| "Failed to close current window")?;
-
     Ok(())
 }
 
@@ -109,10 +105,6 @@ pub async fn login<'a>(
         .unwrap_or_default();
 
     initialize_window(app_handle).map_err(|_| "Failed to initialize window")?;
-
-    window
-        .close()
-        .map_err(|_| "Failed to close current window")?;
 
     Ok(())
 }

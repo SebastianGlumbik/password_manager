@@ -1,5 +1,6 @@
 import {createSignal, JSX} from "solid-js";
-import { invoke } from "@tauri-apps/api/tauri";
+import {invoke} from "@tauri-apps/api/tauri";
+import {appWindow} from '@tauri-apps/api/window'
 import GetSVG from "./GetSVG.tsx";
 // @ts-ignore
 import logo from "./assets/logo.png";
@@ -22,7 +23,8 @@ export default function Login(): JSX.Element {
                 event.preventDefault();
                 setLoading(true);
                 try {
-                    await invoke("login", { password: password() })
+                    await invoke<void>("login", {password: password()})
+                    await appWindow.close();
                 } catch (e) {
                     setError(e as string);
 
@@ -31,13 +33,18 @@ export default function Login(): JSX.Element {
                 }
             }}>
                 <div class="relative w-full">
-                    <input placeholder="Enter your master password" type={visibility() ? 'text' : 'password'} class="pl-3 w-full h-7 rounded-xl pr-10" onInput={(event) => setPassword(event.target.value)}></input>
-                        <div class="absolute inset-y-0 right-2 flex items-center cursor-pointer" onClick={() => setVisibility(!visibility())} title={(visibility() ? "Hide": "View")+" password"}>
-                            <GetSVG name={visibility() ? "eye-slash" : "eye"} class={`h-full p-1 ${visibility() ? 'pr-0.5' : ''}`} />
-                        </div>
+                    <input placeholder="Enter your master password" type={visibility() ? 'text' : 'password'}
+                           class="pl-3 w-full h-7 rounded-xl pr-10"
+                           onInput={(event) => setPassword(event.target.value)}></input>
+                    <div class="absolute inset-y-0 right-2 flex items-center cursor-pointer"
+                         onClick={() => setVisibility(!visibility())}
+                         title={(visibility() ? "Hide" : "View") + " password"}>
+                        <GetSVG name={visibility() ? "eye-slash" : "eye"}
+                                class={`h-full p-1 ${visibility() ? 'pr-0.5' : ''}`}/>
+                    </div>
                 </div>
                 <button type="submit" class="w-7 h-7 p-0.5" title="Login" disabled={loading()}>
-                    <GetSVG name={loading() ? "spinner" : "right-to-bracket"} class={loading() ? "animate-spin" : ""} />
+                    <GetSVG name={loading() ? "spinner" : "right-to-bracket"} class={loading() ? "animate-spin" : ""}/>
                 </button>
             </form>
             <p class="text-[14px] text-[#EB5545]">{error()}</p>

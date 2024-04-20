@@ -62,17 +62,20 @@ impl Database {
             .execute_batch(sql.expose_secret())
             .map_err(|_| "Failed to unlock database")?;
 
-        let sql = SecretString::new("SELECT count(*) FROM sqlite_master;".to_string());
         connection
-            .execute_batch(sql.expose_secret())
+            .execute_batch("PRAGMA cache_size = 0;")
+            .unwrap_or_default();
+
+        connection
+            .execute_batch("SELECT count(*) FROM sqlite_master;")
             .map_err(|_| "Invalid password")?;
 
-        let sql = SecretString::new("PRAGMA cipher_memory_security = ON;".to_string());
         connection
-            .execute_batch(sql.expose_secret())
+            .execute_batch("PRAGMA cipher_memory_security = ON;")
             .map_err(|_| "Failed to enable memory security")?;
 
-        let sql = SecretString::new("
+        connection
+            .execute_batch("
                         create table if not exists Settings (
                             name text primary key,
                             value text not null
@@ -99,11 +102,8 @@ impl Database {
                             hash text primary key,
                             exposed integer not null,
                             checked datetime not null
-                        );
-                        ".to_string());
-        connection
-            .execute_batch(sql.expose_secret())
-            .map_err(|_| "Failed to create database")?;
+                        );"
+            ).map_err(|_| "Failed to create database")?;
 
         Ok(Database {
             connection: Mutex::new(connection),
@@ -126,43 +126,38 @@ impl Database {
     }
 
     pub fn get_setting(&self, name: &str) -> Result<SecretValue, &'static str> {
-        let sql = SecretString::new("SELECT value FROM Settings WHERE name = ?1;".to_string());
         let connection = self
             .connection
             .lock()
             .map_err(|_| "Failed to access database lock")?;
         let mut stmt = connection
-            .prepare(sql.expose_secret())
+            .prepare("SELECT value FROM Settings WHERE name = ?1;")
             .map_err(|_| "Failed to prepare statement")?;
         stmt.query_row(params![name], |row| row.get(0))
             .map_err(|_| "Failed to get setting")
     }
 
     pub fn get_content(&self, id_content: u64) -> Result<Content, &'static str> {
-        let sql = SecretString::new(
-            "SELECT id_content, label, position, required, kind, value FROM Content WHERE id_content = ?1;".to_string());
         let connection = self
             .connection
             .lock()
             .map_err(|_| "Failed to access database lock")?;
         let mut stmt = connection
-            .prepare(sql.expose_secret())
+            .prepare("SELECT id_content, label, position, required, kind, value FROM Content WHERE id_content = ?1;")
             .map_err(|_| "Failed to prepare statement")?;
         stmt.query_row(params![id_content], convert::row_to_content)
             .map_err(|_| "Failed to get content")
     }
 
     pub fn get_all_records(&self) -> Result<Vec<Record>, &'static str> {
-        let sql = SecretString::new(
-            "SELECT id_record, title, subtitle, created, last_modified, category FROM Record;"
-                .to_string(),
-        );
         let connection = self
             .connection
             .lock()
             .map_err(|_| "Failed to access database lock")?;
         let mut stmt = connection
-            .prepare(sql.expose_secret())
+            .prepare(
+                "SELECT id_record, title, subtitle, created, last_modified, category FROM Record;",
+            )
             .map_err(|_| "Failed to prepare statement")?;
         let result: Result<Vec<Record>> = stmt
             .query_map([], convert::row_to_record)
@@ -172,13 +167,12 @@ impl Database {
     }
 
     pub fn get_all_content_for_record(&self, id_record: u64) -> Result<Vec<Content>, &'static str> {
-        let sql = SecretString::new("SELECT id_content, label, position, required, kind, value FROM Content WHERE id_record = ?1;".to_string());
         let connection = self
             .connection
             .lock()
             .map_err(|_| "Failed to access database lock")?;
         let mut stmt = connection
-            .prepare(sql.expose_secret())
+            .prepare("SELECT id_content, label, position, required, kind, value FROM Content WHERE id_record = ?1;")
             .map_err(|_| "Failed to prepare statement")?;
         let result: Result<Vec<Content>> = stmt
             .query_map([id_record], convert::row_to_content)
@@ -191,15 +185,12 @@ impl Database {
         &self,
         id_record: u64,
     ) -> Result<Vec<SecretValue>, &'static str> {
-        let sql = SecretString::new(
-            "SELECT value FROM Content WHERE id_record = ?1 AND kind = 'Password';".to_string(),
-        );
         let connection = self
             .connection
             .lock()
             .map_err(|_| "Failed to access database lock")?;
         let mut stmt = connection
-            .prepare(sql.expose_secret())
+            .prepare("SELECT value FROM Content WHERE id_record = ?1 AND kind = 'Password';")
             .map_err(|_| "Failed to prepare statement")?;
         let result: Result<Vec<SecretValue>> = stmt
             .query_map([id_record], |row| row.get(0))
@@ -210,14 +201,12 @@ impl Database {
 
     /// Based on the hash, it returns the breach status from the cache.
     pub fn get_data_breach_status(&self, hash: &str) -> Result<Option<bool>, &'static str> {
-        let sql =
-            SecretString::new("SELECT exposed FROM DataBreachCache WHERE hash = ?1;".to_string());
         let connection = self
             .connection
             .lock()
             .map_err(|_| "Failed to access database lock")?;
         let mut stmt = connection
-            .prepare(sql.expose_secret())
+            .prepare("SELECT exposed FROM DataBreachCache WHERE hash = ?1;")
             .map_err(|_| "Failed to prepare statement")?;
         stmt.query_row(params![hash], |row| row.get(0))
             .optional()
@@ -225,14 +214,15 @@ impl Database {
     }
 
     pub fn save_setting(&self, name: &str, value: &str) -> Result<(), &'static str> {
-        let sql =
-            SecretString::new("REPLACE INTO Settings (name, value) VALUES (?1, ?2);".to_string());
         let connection = self
             .connection
             .lock()
             .map_err(|_| "Failed to access database lock")?;
         connection
-            .execute(sql.expose_secret(), params![name, value])
+            .execute(
+                "REPLACE INTO Settings (name, value) VALUES (?1, ?2);",
+                params![name, value],
+            )
             .map_err(|_| "Failed to save setting")?;
         Ok(())
     }
@@ -249,18 +239,18 @@ impl Database {
 
         let mut params =
             params![title, subtitle, created, last_modified, category, id_record].to_vec();
-        let sql = SecretString::new(if id_record == 0 {
+        let sql = if id_record == 0 {
             params.pop();
             "INSERT INTO Record (title, subtitle, created, last_modified, category) VALUES (?1, ?2, ?3, ?4, ?5);"
         } else {
             "UPDATE Record SET title = ?1, subtitle = ?2, created = ?3, last_modified = ?4, category = ?5 WHERE id_record = ?6;"
-        }.to_string());
+        };
         let connection = self
             .connection
             .lock()
             .map_err(|_| "Failed to access database lock")?;
         connection
-            .execute(sql.expose_secret(), &*params)
+            .execute(sql, &*params)
             .map_err(|_| "Failed to save record")?;
         if id_record == 0 {
             record.set_id(connection.last_insert_rowid() as u64);
@@ -278,19 +268,19 @@ impl Database {
         let value = secret_value.expose_secret();
         let id_content = content.id();
         let mut params = params![label, position, required, kind, value].to_vec();
-        let sql = SecretString::new(if id_content == 0 {
+        let sql = if id_content == 0 {
             params.append(&mut params![id_record].to_vec());
             "INSERT INTO Content (label, position, required, kind, value, id_record) VALUES (?1, ?2, ?3, ?4, ?5, ?6);"
         } else {
             params.append(&mut params![id_content].to_vec());
             "UPDATE Content SET label = ?1, position = ?2, required = ?3, kind = ?4, value = ?5 WHERE id_content = ?6;"
-        }.to_string());
+        };
         let connection = self
             .connection
             .lock()
             .map_err(|_| "Failed to access database lock")?;
         connection
-            .execute(sql.expose_secret(), &*params)
+            .execute(sql, &*params)
             .map_err(|_| "Failed to save content")?;
         if id_content == 0 {
             content.set_id(connection.last_insert_rowid() as u64);
@@ -300,28 +290,23 @@ impl Database {
 
     /// To add password hash breach status to the cache.
     pub fn add_data_breach_cache(&self, hash: &str, exposed: bool) -> Result<(), &'static str> {
-        let sql = SecretString::new(
-            "REPLACE INTO DataBreachCache (hash, exposed, checked) VALUES (?1, ?2, datetime('now'));"
-                .to_string(),
-        );
         let connection = self
             .connection
             .lock()
             .map_err(|_| "Failed to access database lock")?;
         connection
-            .execute(sql.expose_secret(), params![hash, exposed])
+            .execute("REPLACE INTO DataBreachCache (hash, exposed, checked) VALUES (?1, ?2, datetime('now'));", params![hash, exposed])
             .map_err(|_| "Failed to save content")?;
         Ok(())
     }
 
     pub fn delete_setting(&self, name: &str) -> Result<(), &'static str> {
-        let sql = SecretString::new("DELETE FROM Settings WHERE name = ?1;".to_string());
         let connection = self
             .connection
             .lock()
             .map_err(|_| "Failed to access database lock")?;
         connection
-            .execute(sql.expose_secret(), params![name])
+            .execute("DELETE FROM Settings WHERE name = ?1;", params![name])
             .map_err(|_| "Failed to delete setting")?;
         Ok(())
     }
@@ -335,13 +320,17 @@ impl Database {
         let transaction = connection
             .transaction()
             .map_err(|_| "Failed to start transaction")?;
-        let sql = SecretString::new("DELETE FROM Content WHERE id_record = ?1;".to_string());
         transaction
-            .execute(sql.expose_secret(), params![record.id()])
+            .execute(
+                "DELETE FROM Content WHERE id_record = ?1;",
+                params![record.id()],
+            )
             .map_err(|_| "Failed to delete records content")?;
-        let sql = SecretString::new("DELETE FROM Record WHERE id_record = ?1;".to_string());
         transaction
-            .execute(sql.expose_secret(), params![record.id()])
+            .execute(
+                "DELETE FROM Record WHERE id_record = ?1;",
+                params![record.id()],
+            )
             .map_err(|_| "Failed to delete record")?;
         transaction
             .commit()
@@ -356,9 +345,11 @@ impl Database {
         let transaction = connection
             .transaction()
             .map_err(|_| "Failed to start transaction")?;
-        let sql = SecretString::new("DELETE FROM Content WHERE id_content = ?1;".to_string());
         transaction
-            .execute(sql.expose_secret(), params![content.id()])
+            .execute(
+                "DELETE FROM Content WHERE id_content = ?1;",
+                params![content.id()],
+            )
             .map_err(|_| "Failed to delete content")?;
         transaction
             .commit()
@@ -367,15 +358,15 @@ impl Database {
 
     /// Deletes all password hash breach status older than 24 hours.
     pub fn delete_data_breach_cache_older_24h(&self) -> Result<(), &'static str> {
-        let sql = SecretString::new(
-            "DELETE FROM DataBreachCache WHERE checked < datetime('now', '-1 day');".to_string(),
-        );
         let connection = self
             .connection
             .lock()
             .map_err(|_| "Failed to access database lock")?;
         connection
-            .execute(sql.expose_secret(), [])
+            .execute(
+                "DELETE FROM DataBreachCache WHERE checked < datetime('now', '-1 day');",
+                [],
+            )
             .map_err(|_| "Failed to delete old breach status")?;
         Ok(())
     }

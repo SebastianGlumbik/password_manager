@@ -103,8 +103,7 @@ impl<'a> CloudManager<'a> {
             .session
             .sftp()
             .map_err(|_| "Failed to initialize sftp")?;
-        let cloud_path =
-            PathBuf::from(self.app_handle.package_info().name.as_str()).join(DATABASE_FILE_NAME);
+        let cloud_path = PathBuf::from("PasswordManager").join(DATABASE_FILE_NAME);
         Ok(sftp.open(cloud_path.as_path()).is_ok())
     }
 
@@ -115,8 +114,7 @@ impl<'a> CloudManager<'a> {
             .sftp()
             .map_err(|_| "Failed to initialize sftp")?;
 
-        let cloud_database_path =
-            PathBuf::from(self.app_handle.package_info().name.as_str()).join(DATABASE_FILE_NAME);
+        let cloud_database_path = PathBuf::from("PasswordManager").join(DATABASE_FILE_NAME);
 
         Ok(sftp
             .stat(cloud_database_path.as_path())
@@ -134,7 +132,7 @@ impl<'a> CloudManager<'a> {
             .sftp()
             .map_err(|_| "Failed to initialize sftp")?;
 
-        let cloud_folder = Path::new(self.app_handle.package_info().name.as_str());
+        let cloud_folder = Path::new("PasswordManager");
 
         let semaphore = SEM
             .acquire()
@@ -180,8 +178,7 @@ impl<'a> CloudManager<'a> {
             .sftp()
             .map_err(|_| "Failed to initialize sftp")?;
 
-        let cloud_database_path =
-            PathBuf::from(self.app_handle.package_info().name.as_str()).join(DATABASE_FILE_NAME);
+        let cloud_database_path = PathBuf::from("PasswordManager").join(DATABASE_FILE_NAME);
 
         let mut local_database_path =
             Database::path(self.app_handle).ok_or("Failed to get database path")?;

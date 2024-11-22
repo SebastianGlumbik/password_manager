@@ -57,7 +57,7 @@ impl Database {
             return Err("Failed to open database");
         };
 
-        let sql = SecretString::new(format!("PRAGMA key = '{password}';"));
+        let sql = SecretString::new(format!("PRAGMA key = '{password}';").into());
         connection
             .execute_batch(sql.expose_secret())
             .map_err(|_| "Failed to unlock database")?;
@@ -117,7 +117,7 @@ impl Database {
         if new_password.trim().is_empty() {
             return Err("Password can not be empty");
         }
-        let sql = SecretString::new(format!("PRAGMA rekey = '{new_password}';"));
+        let sql = SecretString::new(format!("PRAGMA rekey = '{new_password}';").into());
         self.connection
             .lock()
             .map_err(|_| "Failed to access database lock")?

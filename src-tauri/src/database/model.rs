@@ -25,7 +25,7 @@ impl FromStr for SecretValue {
     type Err = core::convert::Infallible;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        Ok(SecretValue(SecretString::from_str(s)?))
+        Ok(SecretValue(SecretString::from(s)))
     }
 }
 
@@ -40,7 +40,7 @@ impl Serialize for SecretValue {
 
 impl FromSql for SecretValue {
     fn column_result(value: rusqlite::types::ValueRef) -> rusqlite::types::FromSqlResult<Self> {
-        Ok(SecretValue(SecretString::new(value.as_str()?.to_string())))
+        Ok(SecretValue(SecretString::from(value.as_str()?)))
     }
 }
 
@@ -59,8 +59,8 @@ pub enum Category {
 impl Category {
     /// Converts a string to a category
     pub fn from_string(category: String) -> Category {
-        let category = SecretString::new(category);
-        match category.expose_secret().as_str() {
+        let category = SecretString::new(category.into());
+        match category.expose_secret() {
             "Login" => Category::Login,
             "BankCard" => Category::BankCard,
             "Note" => Category::Note,

@@ -1,6 +1,6 @@
 [package]
 name = "password_manager"
-version = "1.0.0"
+version = "1.0.1"
 description = "Password manager for bachelor thesis"
 authors = ["Sebastian Glumbík"]
 readme = "../README.md"
@@ -10,28 +10,29 @@ edition = "2021"
 license = "MIT"
 
 [build-dependencies]
-tauri-build = { version = "1.5.1", features = [] }
+tauri-build = { version = "1.5.5", features = [] }
 
 [dependencies]
-tauri = { version = "1.6.1", features = [ "window-close", "dialog-message", "dialog-confirm", "clipboard-write-text", "dialog"] }
+tauri = { version = "1.8.1", features = ["window-close", "dialog-message", "dialog-confirm", "clipboard-write-text", "dialog"] }
 tauri-plugin-single-instance = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
-tauri-plugin-context-menu = "0.7.1"
-arboard = "3.3.2"
-serde = { version = "1.0.198", features = ["derive"] }
-serde_json = "1.0.116"
-rusqlite = { version = "0.31.0", features = ["bundled-sqlcipher", "chrono"] }
-zeroize = { version = "1.7.0", features = ["zeroize_derive"] }
-totp-rs = { version = "5.5.1", features = ["otpauth", "zeroize"] }
+tauri-plugin-context-menu = "0.8.2"
+arboard = "3.4.1"
+serde = { version = "1.0.215", features = ["derive"] }
+serde_json = "1.0.133"
+rusqlite = { version = "0.32.1", features = ["bundled-sqlcipher", "chrono"] }
+zeroize = { version = "1.8.1", features = ["zeroize_derive"] }
+totp-rs = { version = "5.6.0", features = ["otpauth", "zeroize"] }
 passwords = { version = "3.1.16", features = ["common-password"] }
-validator = { version = "0.16.1", features = ["phone"] }
+validator = { version = "0.19.0" }
+phonenumber = "0.3.6"
 chrono = { version = "0.4.38", features = ["serde"] }
-secrecy = { version = "0.8.0", features = ["serde"] }
+secrecy = { version = "0.10.3", features = ["serde"] }
 sha1 = "0.10.6"
-reqwest = "0.12.3"
-tokio = { version = "1.37.0", features = ["full"] }
+reqwest = "0.12.9"
+tokio = { version = "1.41.1", features = ["full"] }
 card-validate = "2.4.0"
-anyhow = "1.0.82"
+anyhow = "1.0.93"
 ssh2 = "0.9.4"
 
 [features]

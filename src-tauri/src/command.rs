@@ -31,7 +31,7 @@ pub async fn copy_value_to_clipboard<'a>(
         let (code, _) = totp_manager
             .get_code(&id)
             .ok_or("Failed to get TOTP code")?;
-        SecretString::new(code)
+        SecretString::new(code.into())
     } else {
         content.value().to_secret_string()
     };

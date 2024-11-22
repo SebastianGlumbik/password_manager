@@ -4,6 +4,7 @@ use serde::de::{self, Deserializer, MapAccess, SeqAccess, Visitor};
 use std::fmt;
 use std::ops::Not;
 use totp_rs::{Rfc6238, TOTP};
+use validator::{ValidateEmail, ValidateIp, ValidateUrl};
 
 /// Number value
 #[derive(Debug, PartialEq, Default, Zeroize, ZeroizeOnDrop, Serialize)]
@@ -155,9 +156,7 @@ impl Url {
     /// # Errors
     /// Returns an error if the value is not valid URL, IPv4 or IPv6
     pub fn new(mut value: String) -> Result<Url, &'static str> {
-        if validator::validate_url(value.as_str()).not()
-            && validator::validate_ip_v4(value.as_str()).not()
-            && validator::validate_ip_v6(value.as_str()).not()
+        if value.validate_url().not() && value.validate_ipv4().not() && value.validate_ipv6().not()
         {
             value.zeroize();
             return Err("Invalid URL");
@@ -181,7 +180,7 @@ impl Email {
     /// # Errors
     /// Returns an error if the value is not valid email
     pub fn new(mut value: String) -> Result<Email, &'static str> {
-        if validator::validate_email(value.as_str()).not() {
+        if value.validate_email().not() {
             value.zeroize();
             return Err("Invalid email");
         };
@@ -203,7 +202,7 @@ impl PhoneNumber {
     /// # Errors
     /// Returns an error if the value is not valid international phone number
     pub fn new(mut value: String) -> Result<PhoneNumber, &'static str> {
-        if validator::validate_phone(value.as_str()).not() {
+        if phonenumber::is_viable(value.as_str()).not() {
             value.zeroize();
             return Err("Invalid phone number");
         };
@@ -253,7 +252,7 @@ macro_rules! impl_to_secret_string {
         $(impl ToSecretString for $t {
             /// Convert value to SecretString
             fn to_secret_string(&self) -> SecretString {
-                SecretString::new(self.value.to_string())
+                SecretString::new(self.value.to_string().into())
             }
         })*
     }

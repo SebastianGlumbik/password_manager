@@ -49,13 +49,15 @@ pub async fn check_password<'a>(
     }
     let mut hasher = Sha1::new();
     hasher.update(password.expose_secret().as_bytes());
-    let hash: SecretString = SecretString::new(hasher.finalize().fold(
-        String::with_capacity(40),
-        |mut acc, byte| {
-            acc.push_str(&format!("{:02x}", byte).to_uppercase());
-            acc
-        },
-    ));
+    let hash: SecretString = SecretString::new(
+        hasher
+            .finalize()
+            .fold(String::with_capacity(40), |mut acc, byte| {
+                acc.push_str(&format!("{:02x}", byte).to_uppercase());
+                acc
+            })
+            .into(),
+    );
     let semaphore = SEM
         .acquire()
         .await
@@ -68,14 +70,15 @@ pub async fn check_password<'a>(
         };
     }
     let (prefix, suffix) = hash.expose_secret().split_at(5);
-    let url = SecretString::new(format!("https://api.pwnedpasswords.com/range/{}", prefix));
+    let url = SecretString::new(format!("https://api.pwnedpasswords.com/range/{}", prefix).into());
     let response = SecretString::new(
         reqwest::get(url.expose_secret())
             .await
             .map_err(|_| "Failed to get response")?
             .text()
             .await
-            .map_err(|_| "Failed to get response text")?,
+            .map_err(|_| "Failed to get response text")?
+            .into(),
     );
     let result = response
         .expose_secret()
@@ -120,6 +123,7 @@ pub async fn generate_password<'a>(
             exclude_similar_characters: false,
             strict: true,
         }
-        .generate_one()?,
+        .generate_one()?
+        .into(),
     )))
 }

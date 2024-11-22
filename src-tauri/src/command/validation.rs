@@ -1,4 +1,5 @@
 use super::*;
+use validator::{ValidateEmail, ValidateIp, ValidateUrl};
 use zeroize::Zeroize;
 
 /// Validates value based on its kind.
@@ -15,7 +16,7 @@ use zeroize::Zeroize;
 /// If the value is valid, returns `None`. If the value is invalid, returns an error message.
 #[tauri::command]
 pub async fn validate(kind: SecretString, value: SecretString) -> Option<String> {
-    match kind.expose_secret().as_str() {
+    match kind.expose_secret() {
         "Number" => {
             if value
                 .expose_secret()
@@ -49,9 +50,9 @@ pub async fn validate(kind: SecretString, value: SecretString) -> Option<String>
             }
         }
         "Url" => {
-            if validator::validate_url(value.expose_secret())
-                || validator::validate_ip_v4(value.expose_secret())
-                || validator::validate_ip_v6(value.expose_secret())
+            if value.expose_secret().validate_url()
+                || value.expose_secret().validate_ipv4()
+                || value.expose_secret().validate_ipv6()
             {
                 None
             } else {
@@ -59,14 +60,14 @@ pub async fn validate(kind: SecretString, value: SecretString) -> Option<String>
             }
         }
         "Email" => {
-            if validator::validate_email(value.expose_secret()) {
+            if value.expose_secret().validate_email() {
                 None
             } else {
                 Some("Invalid email".to_string())
             }
         }
         "PhoneNumber" => {
-            if validator::validate_phone(value.expose_secret()) {
+            if phonenumber::is_viable(value.expose_secret()) {
                 None
             } else {
                 Some("Invalid phone number".to_string())

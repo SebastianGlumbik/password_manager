@@ -137,7 +137,7 @@ export default function RecordDetail({record, refresh}: { record: () => Record, 
                                onContextMenu={async (e) => {
                                    if (!edit()) {
                                        e.preventDefault();
-                                       await copyTextToClipboard(record().title)
+                                       await copyTextToClipboard(record().subtitle)
                                    }
                                }}>
                         </input>
